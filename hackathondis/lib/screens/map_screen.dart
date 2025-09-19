@@ -244,7 +244,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1a1a1a),
+      backgroundColor: Colors.grey.shade50,
       appBar: const ModernAppBar(title: 'ParkDZ Finder'),
       body: Stack(
         children: [
@@ -259,9 +259,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             ),
             children: [
               TileLayer(
-                urlTemplate:
-                    "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-                subdomains: const ['a', 'b', 'c', 'd'],
+                urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                userAgentPackageName: 'com.example.hackathondis',
               ),
               MarkerClusterLayerWidget(
                 options: MarkerClusterLayerOptions(
@@ -341,8 +340,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.7),
+        color: Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,7 +362,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         children: [
           Container(width: 12, height: 12, color: color),
           const SizedBox(width: 8),
-          Text(label, style: const TextStyle(color: Colors.white, fontSize: 12)),
+          Text(label, style: const TextStyle(color: Colors.black87, fontSize: 12)),
         ],
       ),
     );
@@ -381,15 +381,15 @@ class _ParkingZoneMarker extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF2c2c2e),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color:
-              zone.isHighlighted ? Colors.yellowAccent : Colors.white.withOpacity(0.2),
+              zone.isHighlighted ? Colors.amber.shade600 : Colors.grey.shade400,
           width: zone.isHighlighted ? 2.0 : 1.0,
         ),
         boxShadow: const [
-          BoxShadow(color: Colors.black54, blurRadius: 8, offset: Offset(0, 4)),
+          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -415,7 +415,7 @@ class _ParkingZoneMarker extends StatelessWidget {
           Text(
             '${zone.pricePerHour.toInt()} DA/hr',
             style: const TextStyle(
-              color: Colors.white,
+              color: Colors.black87,
               fontSize: 12,
               fontWeight: FontWeight.w300,
             ),
@@ -517,9 +517,9 @@ class __UserLocationMarkerState extends State<_UserLocationMarker>
 }
 
 Color _getZoneColor(double occupancyRate) {
-  if (occupancyRate >= 0.9) return Colors.redAccent.shade200;
-  if (occupancyRate > 0.7) return Colors.orangeAccent.shade200;
-  return Colors.greenAccent.shade400;
+  if (occupancyRate >= 0.9) return Colors.red.shade600;
+  if (occupancyRate > 0.7) return Colors.orange.shade600;
+  return Colors.green.shade600;
 }
 
 // --- UI COMPONENTS (AppBar, Bottom Sheets) ---
@@ -529,13 +529,13 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
   const ModernAppBar({Key? key, required this.title}) : super(key: key);
   @override
   Widget build(BuildContext context) => AppBar(
-        backgroundColor: const Color(0xFF2c2c2e),
-        elevation: 0,
+        backgroundColor: Colors.white,
+        elevation: 1,
         title: Row(
           children: [
             const FaIcon(FontAwesomeIcons.squareParking, color: Colors.blueAccent),
             const SizedBox(width: 12),
-            Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            Text(title, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
           ],
         ),
       );
@@ -579,9 +579,16 @@ class ParkingDetailsSheet extends StatelessWidget {
       maxChildSize: 0.7,
       builder: (context, scrollController) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        decoration: const BoxDecoration(
-          color: Color(0xFF2c2c2e),
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 10,
+              offset: const Offset(0, -2),
+            ),
+          ],
         ),
         // FIX: Wrap the ListView's children in padding to prevent overflow
         child: ListView(
@@ -604,13 +611,13 @@ class ParkingDetailsSheet extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: Colors.black87,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               '${distance?.toStringAsFixed(1) ?? '--'} km away - ${zone.address}',
-              style: const TextStyle(color: Colors.white70, fontSize: 16),
+              style: const TextStyle(color: Colors.black54, fontSize: 16),
             ),
             const SizedBox(height: 16),
             Row(
@@ -710,7 +717,8 @@ class ActiveParkingCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.all(12),
-      color: const Color(0xFF2c2c2e),
+      color: Colors.white,
+      elevation: 8,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -727,7 +735,7 @@ class ActiveParkingCard extends StatelessWidget {
                     const Text(
                       'ACTIVE PARKING',
                       style: TextStyle(
-                        color: Colors.white70,
+                        color: Colors.black54,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.2,
                       ),
@@ -735,7 +743,7 @@ class ActiveParkingCard extends StatelessWidget {
                     Text(
                       zone.name,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: Colors.black87,
                         fontSize: 18,
                         fontWeight: FontWeight.w500,
                       ),
@@ -744,17 +752,17 @@ class ActiveParkingCard extends StatelessWidget {
                 ),
               ],
             ),
-            const Divider(color: Colors.white24, height: 24),
+            const Divider(color: Colors.grey, height: 24),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Column(
                   children: [
-                    const Text('Duration', style: TextStyle(color: Colors.white70)),
+                    const Text('Duration', style: TextStyle(color: Colors.black54)),
                     Text(
                       _formatDuration(duration),
                       style: const TextStyle(
-                          color: Colors.white,
+                          color: Colors.black87,
                           fontSize: 20,
                           fontWeight: FontWeight.bold),
                     ),
@@ -762,7 +770,7 @@ class ActiveParkingCard extends StatelessWidget {
                 ),
                 Column(
                   children: [
-                    const Text('Est. Cost', style: TextStyle(color: Colors.white70)),
+                    const Text('Est. Cost', style: TextStyle(color: Colors.black54)),
                     Text(
                       '${cost.toStringAsFixed(2)} DA',
                       style: const TextStyle(
