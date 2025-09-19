@@ -95,7 +95,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     await _fetchCurrentUserLocation(moveCamera: false);
     final dataCenter = currentLocation ?? initialCenter;
 
-    final zones = await _generateMockParkingZones(dataCenter, 2); // Display only 2 real parking zones
+    final zones = await _generateMockParkingZones(dataCenter, 3); // Display only 3 real parking zones
     if (mounted) {
       setState(() {
         parkingZones = zones;
@@ -227,39 +227,59 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         return;
       }
 
-      Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.medium, // Changed from high to medium for better performance
-          timeLimit: const Duration(seconds: 10), // Add timeout to prevent hanging
-      );
-      if (mounted) {
-        setState(() {
-          currentLocation = LatLng(position.latitude, position.longitude);
-        });
-        if (moveCamera) {
-          _animatedMapMove(currentLocation!, 15.0); // Reduced zoom for smoother animation
+      try {
+        Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.medium, // Changed from high to medium for better performance
+            timeLimit: const Duration(seconds: 30), // Increased timeout for better reliability
+        );
+        if (mounted) {
+          setState(() {
+            currentLocation = LatLng(position.latitude, position.longitude);
+          });
+          if (moveCamera) {
+            _animatedMapMove(currentLocation!, 15.0); // Reduced zoom for smoother animation
+          }
+          _highlightNearbyZones();
+          
+          // Show success message when location is found
+          if (moveCamera) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Current location found!'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
         }
-        _highlightNearbyZones();
-        
-        // Show success message when location is found
-        if (moveCamera) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Current location found!'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
-            ),
-          );
-        }
-      }
     } catch (e) {
       debugPrint("Error getting location: $e");
       if (mounted) {
+        // Use Algiers city center as fallback location
+        setState(() {
+          currentLocation = const LatLng(36.775, 3.058);
+        });
+        if (moveCamera) {
+          _animatedMapMove(currentLocation!, 12.0);
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to get current location: ${e.toString()}'),
-            backgroundColor: Colors.red,
+          const SnackBar(
+            content: Text('Using default location (Algiers city center)'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
           ),
         );
+      }
+    }
+    } catch (outerException) {
+      debugPrint("Outer location error: $outerException");
+      if (mounted) {
+        setState(() {
+          currentLocation = const LatLng(36.775, 3.058);
+        });
+        if (moveCamera) {
+          _animatedMapMove(currentLocation!, 12.0);
+        }
       }
     }
   }
@@ -560,8 +580,8 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                   markers: [
                     ...parkingZones.map(
                       (zone) => Marker(
-                        width: 110,
-                        height: 60,
+                        width: 85,
+                        height: 95,
                         point: zone.location,
                         child: GestureDetector(
                           onTap: () => _onZoneTapped(zone),
@@ -734,87 +754,251 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
 // --- CUSTOM WIDGETS FOR MAP & UI ---
 
-class _ParkingZoneMarker extends StatelessWidget {
+class _ParkingZoneMarker extends StatefulWidget {
   const _ParkingZoneMarker({required this.zone});
   final ParkingZone zone;
 
   @override
+  State<_ParkingZoneMarker> createState() => _ParkingZoneMarkerState();
+}
+
+class _ParkingZoneMarkerState extends State<_ParkingZoneMarker>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(seconds: 2),
+      vsync: this,
+    );
+    _pulseAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.1,
+    ).animate(CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeInOut,
+    ));
+    
+    // Start subtle pulse animation if zone is highlighted
+    if (widget.zone.isHighlighted) {
+      _pulseController.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final availableColor = _getZoneColor(zone.occupancyRate);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color:
-              zone.isHighlighted ? Colors.amber.shade600 : Colors.grey.shade400,
-          width: zone.isHighlighted ? 2.0 : 1.0,
-        ),
-        boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2)),
-        ],
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FaIcon(FontAwesomeIcons.car, color: availableColor, size: 14),
-              const SizedBox(width: 6),
-              Text(
-                '${zone.availableSpots}',
-                style: TextStyle(
-                  color: availableColor,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+    final availableColor = _getZoneColor(widget.zone.occupancyRate);
+    final isNearlyFull = widget.zone.occupancyRate > 0.8;
+    final isEmpty = widget.zone.availableSpots == 0;
+    
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: widget.zone.isHighlighted ? _pulseAnimation.value : 1.0,
+          child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isEmpty
+                    ? [Colors.red.shade100, Colors.red.shade200]
+                    : isNearlyFull
+                        ? [Colors.orange.shade100, Colors.orange.shade200]
+                        : [Colors.green.shade100, Colors.green.shade200],
               ),
-            ],
-          ),
-          const SizedBox(height: 2),
-          Text(
-            '${zone.pricePerHour.toInt()} DA/hr',
-            style: const TextStyle(
-              color: Colors.black87,
-              fontSize: 12,
-              fontWeight: FontWeight.w300,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(
+                color: widget.zone.isHighlighted 
+                    ? Colors.amber.shade600 
+                    : availableColor.withOpacity(0.3),
+                width: widget.zone.isHighlighted ? 2.5 : 2.0,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: availableColor.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.white.withOpacity(0.8),
+                  blurRadius: 4,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Top icon section
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: availableColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    isEmpty
+                        ? Icons.no_transfer
+                        : isNearlyFull
+                            ? Icons.warning_rounded
+                            : Icons.local_parking_rounded,
+                    color: availableColor,
+                    size: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                // Available spots
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    FaIcon(
+                      FontAwesomeIcons.car, 
+                      color: availableColor, 
+                      size: 10
+                    ),
+                    const SizedBox(width: 2),
+                    Text(
+                      '${widget.zone.availableSpots}',
+                      style: TextStyle(
+                        color: availableColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                // Price section
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.payments_rounded,
+                        color: Colors.green.shade600,
+                        size: 10,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        '${widget.zone.pricePerHour.toInt()}DA',
+                        style: TextStyle(
+                          color: Colors.green.shade700,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
 
-class _ActiveParkingMarker extends StatelessWidget {
+class _ActiveParkingMarker extends StatefulWidget {
   const _ActiveParkingMarker();
 
   @override
+  State<_ActiveParkingMarker> createState() => _ActiveParkingMarkerState();
+}
+
+class _ActiveParkingMarkerState extends State<_ActiveParkingMarker>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _pulseController;
+  late Animation<double> _pulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    );
+    _pulseAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.2,
+    ).animate(CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeInOut,
+    ));
+    
+    _pulseController.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.indigoAccent,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 2),
-        boxShadow: const [
-          BoxShadow(
-              color: Colors.black54, blurRadius: 10, offset: Offset(0, 5)),
-        ],
-      ),
-      child: const Center(
-        child: Text(
-          'P',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 24,
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _pulseAnimation.value,
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.indigo.shade400,
+                  Colors.indigo.shade600,
+                ],
+              ),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.indigo.withOpacity(0.4),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: Colors.white.withOpacity(0.8),
+                  blurRadius: 4,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.local_parking_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
@@ -852,47 +1036,87 @@ class __UserLocationMarkerState extends State<_UserLocationMarker>
         children: [
           // Outer pulsing ring
           FadeTransition(
-            opacity: Tween<double>(begin: 0.8, end: 0.0)
+            opacity: Tween<double>(begin: 0.6, end: 0.0)
                 .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
             child: ScaleTransition(
-              scale: Tween<double>(begin: 0.5, end: 1.2)
+              scale: Tween<double>(begin: 0.8, end: 1.5)
                   .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut)),
               child: Container(
-                width: 60,
-                height: 60,
+                width: 70,
+                height: 70,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.blueAccent.withOpacity(0.3),
-                  border: Border.all(color: Colors.blueAccent.withOpacity(0.5), width: 1),
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.blue.shade400.withOpacity(0.3),
+                      Colors.blue.shade600.withOpacity(0.1),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: Colors.blue.shade400.withOpacity(0.4), 
+                    width: 2
+                  ),
                 ),
               ),
             ),
           ),
-          // Inner accuracy circle
+          // Middle accuracy circle
           Container(
-            width: 30,
-            height: 30,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.blueAccent.withOpacity(0.2),
-              border: Border.all(color: Colors.blueAccent.withOpacity(0.4), width: 1),
+              gradient: RadialGradient(
+                colors: [
+                  Colors.blue.shade300.withOpacity(0.3),
+                  Colors.blue.shade500.withOpacity(0.2),
+                ],
+              ),
+              border: Border.all(
+                color: Colors.blue.shade400.withOpacity(0.6), 
+                width: 1.5
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
           ),
-          // Center dot
+          // Center dot with icon
           Container(
-            width: 16,
-            height: 16,
+            width: 20,
+            height: 20,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.blueAccent,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.blue.shade400,
+                  Colors.blue.shade600,
+                ],
+              ),
               border: Border.all(color: Colors.white, width: 3),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
+                  color: Colors.black.withOpacity(0.2),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                ),
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 6),
                 ),
               ],
+            ),
+            child: Icon(
+              Icons.person_pin_circle_rounded,
+              color: Colors.white,
+              size: 12,
             ),
           ),
         ],
@@ -928,7 +1152,7 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
 }
 
-class ParkingDetailsSheet extends StatelessWidget {
+class ParkingDetailsSheet extends StatefulWidget {
   final ParkingZone zone;
   final LatLng? currentLocation;
   final Function(ParkingZone) onBookSpot;
@@ -940,6 +1164,56 @@ class ParkingDetailsSheet extends StatelessWidget {
     required this.onBookSpot,
   }) : super(key: key);
 
+  @override
+  State<ParkingDetailsSheet> createState() => _ParkingDetailsSheetState();
+}
+
+class _ParkingDetailsSheetState extends State<ParkingDetailsSheet>
+    with TickerProviderStateMixin {
+  late AnimationController _slideController;
+  late AnimationController _fadeController;
+  late Animation<double> _slideAnimation;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 800),
+      vsync: this,
+    );
+    
+    _slideAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeOutCubic,
+    ));
+    
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeInOut,
+    ));
+    
+    _slideController.forward();
+    _fadeController.forward();
+  }
+
+  @override
+  void dispose() {
+    _slideController.dispose();
+    _fadeController.dispose();
+    super.dispose();
+  }
+
   void _openDirections(LatLng destination) async {
     final url =
         'https://www.google.com/maps/dir/?api=1&destination=${destination.latitude},${destination.longitude}';
@@ -948,129 +1222,402 @@ class ParkingDetailsSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final distance = currentLocation != null
+    final distance = widget.currentLocation != null
         ? Geolocator.distanceBetween(
-              currentLocation!.latitude,
-              currentLocation!.longitude,
-              zone.location.latitude,
-              zone.location.longitude,
+              widget.currentLocation!.latitude,
+              widget.currentLocation!.longitude,
+              widget.zone.location.latitude,
+              widget.zone.location.longitude,
             ) /
             1000
         : null;
 
-    return DraggableScrollableSheet(
-      initialChildSize: 0.45,
-      minChildSize: 0.2,
-      maxChildSize: 0.7,
-      builder: (context, scrollController) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 10,
-              offset: const Offset(0, -2),
-            ),
-          ],
-        ),
-        // FIX: Wrap the ListView's children in padding to prevent overflow
-        child: ListView(
-          controller: scrollController,
-          padding: const EdgeInsets.only(top: 8.0, bottom: 24.0),
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[600],
-                  borderRadius: BorderRadius.circular(2),
+    return AnimatedBuilder(
+      animation: _slideAnimation,
+      builder: (context, child) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.45,
+          minChildSize: 0.2,
+          maxChildSize: 0.75,
+          builder: (context, scrollController) => Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.white,
+                  Colors.grey.shade50,
+                ],
+              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 20,
+                  offset: const Offset(0, -5),
                 ),
-              ),
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.05),
+                  blurRadius: 40,
+                  offset: const Offset(0, -10),
+                ),
+              ],
             ),
-            Text(
-              zone.name,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${distance?.toStringAsFixed(1) ?? '--'} km away - ${zone.address}',
-              style: const TextStyle(color: Colors.black54, fontSize: 16),
-            ),
-            const SizedBox(height: 16),
-            Row(
+            child: ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.all(24.0),
               children: [
-                Text(
-                  '${zone.availableSpots} / ${zone.totalSpots} spots free',
-                  style: TextStyle(
-                    color: _getZoneColor(zone.occupancyRate),
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+                // Drag handle
+                Center(
+                  child: Container(
+                    width: 50,
+                    height: 5,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
                   ),
                 ),
-                const Spacer(),
-                Text(
-                  '${zone.pricePerHour.toInt()} DA / hour',
-                  style: const TextStyle(
-                    color: Colors.greenAccent,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
+                
+                // Header section with animated elements
+                SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.5),
+                    end: Offset.zero,
+                  ).animate(_slideAnimation),
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: _buildHeaderSection(distance),
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Stats cards
+                SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.3),
+                    end: Offset.zero,
+                  ).animate(_slideAnimation),
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: _buildStatsCards(),
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
+                
+                // Action buttons
+                SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.2),
+                    end: Offset.zero,
+                  ).animate(_slideAnimation),
+                  child: FadeTransition(
+                    opacity: _fadeAnimation,
+                    child: _buildActionButtons(),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 8),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: LinearProgressIndicator(
-                value: zone.occupancyRate,
-                minHeight: 8,
-                backgroundColor: Colors.grey.withOpacity(0.3),
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  _getZoneColor(zone.occupancyRate),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHeaderSection(double? distance) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Title with location icon
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue.shade400, Colors.blue.shade600],
                 ),
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.local_parking_rounded,
+                color: Colors.white,
+                size: 24,
               ),
             ),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed:
-                  zone.availableSpots > 0 ? () => onBookSpot(zone) : null,
-              icon: const FaIcon(FontAwesomeIcons.bookmark, size: 16),
-              label: const Text('Book a Spot'),
-              style: ElevatedButton.styleFrom(
-                foregroundColor: Colors.white,
-                backgroundColor: Colors.blueAccent,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                disabledBackgroundColor: Colors.grey.shade700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: () => _openDirections(zone.location),
-              icon: const Icon(Icons.directions_car),
-              label: const Text('Get Directions'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                side: BorderSide(color: Colors.grey.shade700),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.zone.name,
+                    style: const TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_rounded,
+                        color: Colors.grey.shade600,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          widget.zone.address,
+                          style: TextStyle(
+                            color: Colors.grey.shade600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
           ],
         ),
+        
+        if (distance != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.green.shade50,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.green.shade200),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.directions_walk_rounded,
+                  color: Colors.green.shade600,
+                  size: 16,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  '${distance.toStringAsFixed(1)} km away',
+                  style: TextStyle(
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildStatsCards() {
+    return Row(
+      children: [
+        // Available spots card
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.local_parking_rounded,
+            iconColor: _getZoneColor(widget.zone.occupancyRate),
+            title: 'Available',
+            value: '${widget.zone.availableSpots}/${widget.zone.totalSpots}',
+            subtitle: 'spots',
+            progress: 1.0 - widget.zone.occupancyRate,
+          ),
+        ),
+        const SizedBox(width: 12),
+        // Price card
+        Expanded(
+          child: _buildStatCard(
+            icon: Icons.payments_rounded,
+            iconColor: Colors.green.shade600,
+            title: 'Price',
+            value: '${widget.zone.pricePerHour.toInt()}',
+            subtitle: 'DA/hour',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String value,
+    required String subtitle,
+    double? progress,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Colors.white, Colors.grey.shade50],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: iconColor, size: 24),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            title,
+            style: TextStyle(
+              color: Colors.grey.shade600,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+          ),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: Colors.grey.shade500,
+              fontSize: 11,
+            ),
+          ),
+          if (progress != null) ...[
+            const SizedBox(height: 8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                minHeight: 6,
+                backgroundColor: Colors.grey.shade200,
+                valueColor: AlwaysStoppedAnimation<Color>(iconColor),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Column(
+      children: [
+        // Book spot button
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: widget.zone.availableSpots > 0 
+                ? () => widget.onBookSpot(widget.zone) 
+                : null,
+            style: ElevatedButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: widget.zone.availableSpots > 0 
+                  ? Colors.blue.shade600 
+                  : Colors.grey.shade400,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              elevation: widget.zone.availableSpots > 0 ? 4 : 0,
+              shadowColor: Colors.blue.withOpacity(0.3),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  widget.zone.availableSpots > 0 
+                      ? Icons.bookmark_add_rounded 
+                      : Icons.block_rounded,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  widget.zone.availableSpots > 0 
+                      ? 'Reserve a Spot' 
+                      : 'No Spots Available',
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        
+        const SizedBox(height: 12),
+        
+        // Directions button
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: () => _openDirections(widget.zone.location),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.blue.shade600,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              side: BorderSide(color: Colors.blue.shade200, width: 1.5),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.directions_car_filled_rounded,
+                  size: 20,
+                  color: Colors.blue.shade600,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Get Directions',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
