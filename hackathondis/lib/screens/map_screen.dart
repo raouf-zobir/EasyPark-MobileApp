@@ -1142,7 +1142,18 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
         elevation: 1,
         title: Row(
           children: [
-            const FaIcon(FontAwesomeIcons.squareParking, color: Colors.blueAccent),
+            Container(
+              width: 32,
+              height: 32,
+              child: Image.asset(
+                'assets/logo.png',
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  // Fallback to parking icon if logo fails to load
+                  return const FaIcon(FontAwesomeIcons.squareParking, color: Colors.blueAccent, size: 24);
+                },
+              ),
+            ),
             const SizedBox(width: 12),
             Text(title, style: const TextStyle(color: Colors.black87, fontWeight: FontWeight.bold)),
           ],

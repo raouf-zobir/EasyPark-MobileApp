@@ -123,16 +123,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 // App Logo
                 Center(
                   child: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF4DB6AC),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.local_parking,
-                      color: Colors.white,
-                      size: 24,
+                    width: 50,
+                    height: 50,
+                    child: Image.asset(
+                      'assets/logo.png',
+                      fit: BoxFit.contain,
+                      errorBuilder: (context, error, stackTrace) {
+                        // Fallback to parking icon if logo fails to load
+                        return Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF4DB6AC),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.local_parking,
+                            color: Colors.white,
+                            size: 30,
+                          ),
+                        );
+                      },
                     ),
                   ),
                 ),

@@ -99,12 +99,45 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
               children: [
                 const SizedBox(height: 24),
                 
-                // Header Section
+                // Logo and Header Section
                 SlideTransition(
                   position: _slideAnimation,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
+                      // Logo
+                      Container(
+                        width: 80,
+                        height: 80,
+                        margin: const EdgeInsets.only(bottom: 24),
+                        child: Image.asset(
+                          'assets/logo.png',
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) {
+                            // Fallback to parking icon if logo fails to load
+                            return Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(16),
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    AppColors.primaryBlue,
+                                    AppColors.primaryGreen,
+                                  ],
+                                ),
+                              ),
+                              child: const Icon(
+                                Icons.local_parking_rounded,
+                                color: Colors.white,
+                                size: 40,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                       Text(
                         'Create Account',
                         style: GoogleFonts.inter(
@@ -112,6 +145,7 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
                           fontWeight: FontWeight.w700,
                           color: const Color(0xFF1A1A1A),
                         ),
+                        textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -121,6 +155,7 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
                           fontWeight: FontWeight.w400,
                           color: const Color(0xFF666666),
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
