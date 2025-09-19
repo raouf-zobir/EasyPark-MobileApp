@@ -282,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
-                    childAspectRatio: 0.85,
+                    childAspectRatio: 0.75,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
                   ),
@@ -305,7 +305,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
-                            flex: 3,
+                            flex: 4,
                             child: Container(
                               decoration: BoxDecoration(
                                 borderRadius: const BorderRadius.vertical(
@@ -319,52 +319,54 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           Expanded(
-                            flex: 2,
+                            flex: 3,
                             child: Padding(
-                              padding: const EdgeInsets.all(8),
+                              padding: const EdgeInsets.all(6),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                 children: [
                                   Text(
                                     spot.name,
                                     style: const TextStyle(
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  const SizedBox(height: 2),
                                   Text(
                                     spot.walkTime,
                                     style: TextStyle(
-                                      fontSize: 10,
+                                      fontSize: 9,
                                       color: Colors.grey[600],
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  const SizedBox(height: 4),
                                   Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      ...List.generate(4, (i) => Icon(
-                                        Icons.star,
-                                        color: Colors.amber,
-                                        size: 10,
-                                      )),
-                                      const Icon(
-                                        Icons.star_border,
-                                        color: Colors.amber,
-                                        size: 10,
+                                      Row(
+                                        children: [
+                                          ...List.generate(4, (i) => Icon(
+                                            Icons.star,
+                                            color: Colors.amber,
+                                            size: 8,
+                                          )),
+                                          const Icon(
+                                            Icons.star_border,
+                                            color: Colors.amber,
+                                            size: 8,
+                                          ),
+                                        ],
                                       ),
-                                      if (spot.hasShuttle) ...[
-                                        const Spacer(),
+                                      if (spot.hasShuttle)
                                         const Icon(
                                           Icons.directions_bus,
                                           color: Color(0xFF4DB6AC),
-                                          size: 12,
+                                          size: 10,
                                         ),
-                                      ],
                                     ],
                                   ),
                                 ],
