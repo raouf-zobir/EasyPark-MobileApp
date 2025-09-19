@@ -21,6 +21,8 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
 
   bool _isChecked = false;
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   @override
   void initState() {
@@ -60,45 +62,152 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.white,
-              AppColors.primaryBlue.withOpacity(0.2),
-              AppColors.primaryGreen.withOpacity(0.4),
-              AppColors.primaryBlue.withOpacity(0.8),
-            ],
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset('assets/images/logo.png', height: 180),
-                const SizedBox(height: 20),
-                Text(
-                  'Create Account',
-                  style: GoogleFonts.poppins(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white),
+      backgroundColor: const Color(0xFFF8F9FA),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
-                const SizedBox(height: 30),
-                _buildTextField('Full Name', false, _nameController),
-                const SizedBox(height: 15),
-                _buildTextField('Email', false, _emailController),
-                const SizedBox(height: 15),
-                _buildTextField('Password', true, _passwordController),
-                const SizedBox(height: 15),
-                _buildTextField('Confirm Password', true, _passwordCheckController),
-                const SizedBox(height: 20),
-                _buildTermsCheckbox(),
-                const SizedBox(height: 20),
-                _buildSignUpButton(),
-                const SizedBox(height: 10),
-                _buildLoginPrompt(context),
+              ],
+            ),
+            child: const Icon(
+              Icons.arrow_back_ios_new,
+              color: Color(0xFF1A1A1A),
+              size: 18,
+            ),
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 24),
+                
+                // Header Section
+                SlideTransition(
+                  position: _slideAnimation,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Create Account',
+                        style: GoogleFonts.inter(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF1A1A1A),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Join EasyPark and find your perfect parking spot',
+                        style: GoogleFonts.inter(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF666666),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 32),
+                
+                // Form Fields
+                Column(
+                  children: [
+                    _buildModernTextField(
+                      'Full Name',
+                      false,
+                      _nameController,
+                      Icons.person_outline,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildModernTextField(
+                      'Email Address',
+                      false,
+                      _emailController,
+                      Icons.email_outlined,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildModernTextField(
+                      'Password',
+                      _obscurePassword,
+                      _passwordController,
+                      Icons.lock_outline,
+                      isPassword: true,
+                      isConfirmPassword: false,
+                    ),
+                    const SizedBox(height: 16),
+                    _buildModernTextField(
+                      'Confirm Password',
+                      _obscureConfirmPassword,
+                      _passwordCheckController,
+                      Icons.lock_outline,
+                      isPassword: true,
+                      isConfirmPassword: true,
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Terms and Conditions
+                    _buildModernTermsCheckbox(),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Sign Up Button
+                    _buildModernSignUpButton(),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Login Link
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Already have an account? ',
+                          style: GoogleFonts.inter(
+                            fontSize: 14,
+                            color: const Color(0xFF666666),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: Text(
+                            'Sign In',
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryBlue,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ],
             ),
           ),
@@ -107,55 +216,142 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildTextField(String label, bool obscureText, TextEditingController controller) {
+  Widget _buildModernTextField(
+    String label,
+    bool obscureText,
+    TextEditingController controller,
+    IconData icon, {
+    bool isPassword = false,
+    bool isConfirmPassword = false,
+  }) {
     return SlideTransition(
       position: _slideAnimation,
-      child: TextField(
-        controller: controller,
-        obscureText: obscureText,
-        decoration: InputDecoration(
-          labelText: label,
-          labelStyle: GoogleFonts.poppins(color: Colors.white),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.white),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Colors.white, width: 2),
-          ),
-          filled: true,
-          fillColor: Colors.black.withOpacity(0.15),
-          contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
-        style: GoogleFonts.poppins(color: Colors.white),
+        child: TextField(
+          controller: controller,
+          obscureText: obscureText,
+          style: GoogleFonts.inter(
+            fontSize: 16,
+            color: const Color(0xFF1A1A1A),
+          ),
+          decoration: InputDecoration(
+            hintText: label,
+            hintStyle: GoogleFonts.inter(
+              fontSize: 16,
+              color: const Color(0xFF999999),
+            ),
+            prefixIcon: Icon(
+              icon,
+              color: const Color(0xFF666666),
+              size: 20,
+            ),
+            suffixIcon: isPassword
+                ? IconButton(
+                    icon: Icon(
+                      isConfirmPassword
+                          ? (_obscureConfirmPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined)
+                          : (_obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                      color: const Color(0xFF666666),
+                      size: 20,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        if (isConfirmPassword) {
+                          _obscureConfirmPassword = !_obscureConfirmPassword;
+                        } else {
+                          _obscurePassword = !_obscurePassword;
+                        }
+                      });
+                    },
+                  )
+                : null,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(
+                color: AppColors.primaryBlue,
+                width: 2,
+              ),
+            ),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.all(20),
+          ),
+        ),
       ),
     );
   }
 
-  Widget _buildTermsCheckbox() {
+  Widget _buildModernTermsCheckbox() {
     return SlideTransition(
       position: _slideAnimation,
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Theme(
-            data: ThemeData(unselectedWidgetColor: Colors.white),
+          Container(
+            width: 20,
+            height: 20,
+            margin: const EdgeInsets.only(top: 2),
             child: Checkbox(
               value: _isChecked,
               onChanged: (value) => setState(() => _isChecked = value ?? false),
-              activeColor: Colors.white,
-              checkColor: AppColors.primaryBlue,
+              activeColor: AppColors.primaryBlue,
+              checkColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
+              side: BorderSide(
+                color: _isChecked ? AppColors.primaryBlue : const Color(0xFFCCCCCC),
+                width: 2,
+              ),
             ),
           ),
+          const SizedBox(width: 12),
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: GoogleFonts.poppins(color: Colors.white, fontSize: 14),
+                style: GoogleFonts.inter(
+                  color: const Color(0xFF666666),
+                  fontSize: 14,
+                ),
                 children: [
                   const TextSpan(text: 'I agree to the '),
                   TextSpan(
-                    text: 'Terms and Conditions',
-                    style: const TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+                    text: 'Terms of Service',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryBlue,
+                      decoration: TextDecoration.underline,
+                    ),
+                    recognizer: TapGestureRecognizer()
+                      ..onTap = () => Navigator.pushNamed(context, '/terms'),
+                  ),
+                  const TextSpan(text: ' and '),
+                  TextSpan(
+                    text: 'Privacy Policy',
+                    style: GoogleFonts.inter(
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.primaryBlue,
+                      decoration: TextDecoration.underline,
+                    ),
                     recognizer: TapGestureRecognizer()
                       ..onTap = () => Navigator.pushNamed(context, '/terms'),
                   ),
@@ -168,38 +364,63 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildSignUpButton() {
+  Widget _buildModernSignUpButton() {
     return SlideTransition(
       position: _slideAnimation,
-      child: ElevatedButton(
-        onPressed: (_isLoading || !_isChecked) ? null : _handleSignup,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
-          foregroundColor: AppColors.primaryBlue,
-          disabledBackgroundColor: Colors.grey.shade300,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30.0)),
-          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
-          elevation: 6,
-          minimumSize: const Size(double.infinity, 50),
+      child: Container(
+        width: double.infinity,
+        height: 56,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: _isChecked
+                ? [
+                    AppColors.primaryBlue,
+                    AppColors.primaryBlue.withOpacity(0.8),
+                  ]
+                : [
+                    const Color(0xFFCCCCCC),
+                    const Color(0xFFCCCCCC),
+                  ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: _isChecked
+              ? [
+                  BoxShadow(
+                    color: AppColors.primaryBlue.withOpacity(0.3),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ]
+              : [],
         ),
-        child: _isLoading
-            ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: AppColors.primaryBlue))
-            : Text(
-                'Sign Up',
-                style: GoogleFonts.poppins(fontSize: 18, color: AppColors.primaryBlue),
-              ),
-      ),
-    );
-  }
-
-  Widget _buildLoginPrompt(BuildContext context) {
-    return SlideTransition(
-      position: _slideAnimation,
-      child: TextButton(
-        onPressed: () => Navigator.pop(context), // Go back to login screen
-        child: const Text(
-          'Already have an account? Login',
-          style: TextStyle(color: Colors.white),
+        child: ElevatedButton(
+          onPressed: (_isLoading || !_isChecked) ? null : _handleSignup,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            shadowColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : Text(
+                  'Create Account',
+                  style: GoogleFonts.inter(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
         ),
       ),
     );
