@@ -173,7 +173,7 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
                     // Sign Up Button
                     _buildModernSignUpButton(),
                     
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 48),
                     
                     // Login Link
                     Row(
