@@ -1,1115 +1,670 @@
 import 'package:flutter/material.dart';
-import 'package:carousel_slider/carousel_slider.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import 'dart:math';
 
-// --- DATA MODELS (to replace Firebase documents) ---
+class ParkingSpot {
+  final String name;
+  final String distance;
+  final String walkTime;
+  final double rating;
+  final int availableSpots;
+  final String imagePath;
+  final bool hasShuttle;
 
-class Fundraiser {
-  final String id;
-  final String title;
-  final String mainImageUrl;
-  final double funding;
-  final double donationAmount; // The goal amount
-  final DateTime expirationDate;
-  final int donators;
-  final String category;
-
-  Fundraiser({
-    required this.id,
-    required this.title,
-    required this.mainImageUrl,
-    required this.funding,
-    required this.donationAmount,
-    required this.expirationDate,
-    required this.donators,
-    required this.category,
+  ParkingSpot({
+    required this.name,
+    required this.distance,
+    required this.walkTime,
+    required this.rating,
+    required this.availableSpots,
+    required this.imagePath,
+    this.hasShuttle = false,
   });
 }
 
-class VideoReel {
-  final String id;
-  final String title;
-  final String mainImageUrl;
+class RecentSearch {
+  final String name;
+  final String walkTime;
+  final String visitedDate;
 
-  VideoReel({
-    required this.id,
-    required this.title,
-    required this.mainImageUrl,
+  RecentSearch({
+    required this.name,
+    required this.walkTime,
+    required this.visitedDate,
   });
 }
 
-// --- MOCK DATA (to replace Firebase database) ---
+class ParkingTip {
+  final String title;
+  final String description;
+  final String imagePath;
 
-final List<Fundraiser> _mockFundraisers = List.generate(20, (index) {
-  final categories = [
-    'Medical',
-    'Disaster',
-    'Education',
-    'Environment',
-    'Social',
-    'Sick child',
-    'Infrastructure',
-    'Art',
-    'Orphanage',
-    'Humanity',
-  ];
-  final random = Random();
-  final category = categories[random.nextInt(categories.length)];
-  final goal = (random.nextInt(200) + 50) * 1000.0;
-  final raised =
-      goal * (random.nextDouble() * 0.9); // funded between 0% and 90%
-
-  // Parking-related images from Unsplash (replace with your own if needed)
-  final parkingImages = [
-    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1523413363574-c30aa1c2a1ae?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1465101178521-c1a4c8a0a8b7?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1519985176271-adb1088fa94c?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=600&q=80',
-    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80',
-  ];
-
-  return Fundraiser(
-    id: 'fundraiser_$index',
-    title: 'Parking Spot for $category #${index + 1}',
-    mainImageUrl: parkingImages[index % parkingImages.length],
-    funding: raised,
-    donationAmount: goal,
-    expirationDate: DateTime.now().add(Duration(days: random.nextInt(60) + 5)),
-    donators: random.nextInt(500) + 20,
-    category: category,
-  );
-});
-
-final List<VideoReel> _mockVideos = List.generate(8, (index) {
-  // Parking-related video thumbnails from Unsplash
-  final parkingVideoImages = [
-    'https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1523413363574-c30aa1c2a1ae?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1509228468518-180dd4864904?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1465101178521-c1a4c8a0a8b7?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1506377247377-2a5b3b417ebb?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1519985176271-adb1088fa94c?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1465101046530-73398c7f28ca?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=400&q=80',
-  ];
-  return VideoReel(
-    id: 'video_$index',
-    title: 'Parking Story: How Your Spot Helped #${index + 1}',
-    mainImageUrl: parkingVideoImages[index % parkingVideoImages.length],
-  );
-});
-
-// --- MAIN WIDGET ---
+  ParkingTip({
+    required this.title,
+    required this.description,
+    required this.imagePath,
+  });
+}
 
 class HomeScreen extends StatefulWidget {
   @override
-  _FundraisingHomePageState createState() => _FundraisingHomePageState();
+  _HomeScreenState createState() => _HomeScreenState();
 }
 
-class _FundraisingHomePageState extends State<HomeScreen> {
-  String _selectedFilterUrgent = 'All';
-  String _selectedFilterMore = 'All';
+class _HomeScreenState extends State<HomeScreen> {
+  final List<ParkingSpot> popularSpots = [
+    ParkingSpot(
+      name: "Downtown Garage",
+      distance: "5 min walk",
+      walkTime: "5 min walk to mall",
+      rating: 4.5,
+      availableSpots: 45,
+      imagePath: "assets/images/parking.png",
+    ),
+    ParkingSpot(
+      name: "City Center Parking",
+      distance: "3 min walk",
+      walkTime: "5 min walk to the...",
+      rating: 4.2,
+      availableSpots: 23,
+      imagePath: "assets/images/parking.png",
+    ),
+    ParkingSpot(
+      name: "Park & Ride Lot",
+      distance: "2 min walk",
+      walkTime: "Free shuttle to...",
+      rating: 4.8,
+      availableSpots: 67,
+      imagePath: "assets/images/parking.png",
+      hasShuttle: true,
+    ),
+  ];
 
-  // Local state to manage favorites, replacing Firebase Auth/Firestore
-  final Set<String> _favoriteIds = {};
+  final List<RecentSearch> recentSearches = [
+    RecentSearch(
+      name: "Downtown Garage",
+      walkTime: "5 min walk",
+      visitedDate: "Visited on Oct 1",
+    ),
+    RecentSearch(
+      name: "City Center Parking",
+      walkTime: "3 min walk",
+      visitedDate: "Visited on Sept 28",
+    ),
+    RecentSearch(
+      name: "Park & Ride Lot",
+      walkTime: "Free shuttle",
+      visitedDate: "Visited on Sept 25",
+    ),
+  ];
 
-  // Local lists to hold our data
-  late List<Fundraiser> _urgentFundraisers;
-  late List<Fundraiser> _moreToHelpFundraisers;
-  late List<VideoReel> _videos;
-  late List<Fundraiser> _sliderFundraisers;
-
-  @override
-  void initState() {
-    super.initState();
-    // Load data from our mock source on initialization
-    _loadData();
-  }
-
-  void _loadData() {
-    // Top 3 fundraisers for the image slider
-    _sliderFundraisers = _mockFundraisers.take(3).toList();
-
-    // Initial data for "Urgent Fundraising" section
-    _urgentFundraisers = _getFilteredFundraisers(_selectedFilterUrgent);
-
-    // Initial data for "More to Help" section (sorted by donors)
-    _moreToHelpFundraisers = _getFilteredFundraisers(_selectedFilterMore)
-      ..sort((a, b) => b.donators.compareTo(a.donators));
-
-    // Video data
-    _videos = _mockVideos;
-  }
-
-  // Replaces Firebase's .where() query
-  List<Fundraiser> _getFilteredFundraisers(String filter) {
-    if (filter == 'All') {
-      return List.from(_mockFundraisers);
-    } else {
-      return _mockFundraisers.where((f) => f.category == filter).toList();
-    }
-  }
-
-  // Toggles favorite status locally
-  void toggleFavorite(String fundraiserId) {
-    setState(() {
-      if (_favoriteIds.contains(fundraiserId)) {
-        _favoriteIds.remove(fundraiserId);
-      } else {
-        _favoriteIds.add(fundraiserId);
-      }
-    });
-  }
-
-  // Checks if a fundraiser is a favorite locally
-  bool isFavorite(String fundraiserId) {
-    return _favoriteIds.contains(fundraiserId);
-  }
-
-  // Updates the filter and rebuilds the UI for the "Urgent" section
-  void setUrgentFilter(String? filter) {
-    setState(() {
-      _selectedFilterUrgent = filter ?? 'All';
-      _urgentFundraisers = _getFilteredFundraisers(_selectedFilterUrgent);
-    });
-  }
-
-  // Updates the filter and rebuilds the UI for the "More to Help" section
-  void setMoreFilter(String? filter) {
-    setState(() {
-      _selectedFilterMore = filter ?? 'All';
-      _moreToHelpFundraisers = _getFilteredFundraisers(_selectedFilterMore)
-        ..sort((a, b) => b.donators.compareTo(a.donators));
-    });
-  }
+  final List<ParkingTip> parkingTips = [
+    ParkingTip(
+      title: "Peak Hours",
+      description: "Avoid between 5 PM to 7 PM for best availability",
+      imagePath: "assets/images/parking.png",
+    ),
+    ParkingTip(
+      title: "Payment Options",
+      description: "Multiple payment methods accepted including credit cards and e-wallets",
+      imagePath: "assets/images/parking.png",
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: ModernAppBar(
-        title: 'Home',
-        showLogo: true,
-        actions: [
-          IconButton(
-            icon: Icon(Icons.search, size: 28),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => SearchPage()),
-              );
-            },
-          ),
-          SizedBox(width: 15),
-          IconButton(
-            icon: Icon(Icons.notifications, size: 28),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => NotificationScreen()),
-              );
-            },
-          ),
-          SizedBox(width: 15),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 12),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 12.0),
-              child: Container(
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '\$0',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text('My wallet balance'),
-                      ],
+      backgroundColor: Colors.grey[50],
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // App Logo
+                Center(
+                  child: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4DB6AC),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => TopUpScreen(),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        'Top up',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SizedBox(height: 16),
-            _buildImageSlider(),
-            SizedBox(height: 16),
-            _buildFundraisingSection(
-              title: 'Urgent Fundraising',
-              fundraisers: _urgentFundraisers,
-              filters: [
-                'All',
-                'Medical',
-                'Disaster',
-                'Education',
-                'Environment',
-                'Social',
-                'Sick child',
-                'Infrastructure',
-                'Art',
-                'Orphanage',
-                'Humanity',
-                'Others',
-              ],
-              selectedFilter: _selectedFilterUrgent,
-              onFilterSelected: setUrgentFilter,
-            ),
-            SizedBox(height: 24),
-            _buildFundraisingSection(
-              title: 'More to Help',
-              fundraisers: _moreToHelpFundraisers,
-              filters: [
-                'All',
-                'Medical',
-                'Education',
-                'Environment',
-                'Social',
-                'Others',
-              ],
-              selectedFilter: _selectedFilterMore,
-              onFilterSelected: setMoreFilter,
-            ),
-            SizedBox(height: 24),
-
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildImageSlider() {
-    if (_sliderFundraisers.isEmpty) {
-      return Container(
-        height: 200.0,
-        child: Center(child: Text("No featured fundraisers.")),
-      );
-    }
-
-    return CarouselSlider(
-      options: CarouselOptions(
-        height: 200.0,
-        enlargeCenterPage: true,
-        autoPlay: true,
-        aspectRatio: 16 / 9,
-        autoPlayInterval: Duration(seconds: 4),
-        autoPlayAnimationDuration: Duration(milliseconds: 800),
-        autoPlayCurve: Curves.fastOutSlowIn,
-        enableInfiniteScroll: true,
-        viewportFraction: 0.92,
-      ),
-      items: _sliderFundraisers.map((fundraiser) {
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              CachedNetworkImage(
-                imageUrl: fundraiser.mainImageUrl,
-                fit: BoxFit.cover,
-                width: double.infinity,
-                placeholder: (context, url) => Container(
-                  color: Colors.grey[300],
-                  child: Center(
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+                    child: const Icon(
+                      Icons.local_parking,
+                      color: Colors.white,
+                      size: 24,
                     ),
                   ),
                 ),
-                errorWidget: (context, url, error) => Container(
-                  color: Colors.grey[300],
-                  child: Icon(Icons.error, color: Colors.red),
-                ),
-              ),
-              Container(
-                alignment: Alignment.bottomLeft,
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                    colors: [Colors.black.withOpacity(0.6), Colors.transparent],
+                const SizedBox(height: 20),
+
+                // Search Bar
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey[200],
+                    borderRadius: BorderRadius.circular(25),
+                  ),
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Search for parking spots',
+                      hintStyle: TextStyle(color: Colors.grey[600]),
+                      prefixIcon: Icon(Icons.search, color: Colors.grey[600]),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 15,
+                      ),
+                    ),
                   ),
                 ),
-                child: Text(
-                  fundraiser.title,
+                const SizedBox(height: 30),
+
+                // Locate nearby parking spots section
+                const Text(
+                  'Locate nearby parking spots',
                   style: TextStyle(
-                    color: Colors.white,
                     fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildFundraisingSection({
-    required String title,
-    required List<Fundraiser> fundraisers,
-    required List<String> filters,
-    required String selectedFilter,
-    required Function(String?) onFilterSelected,
-  }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.5,
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SearchPage(initialTabIndex: 0),
-                    ),
-                  );
-                },
-                icon: Icon(Icons.arrow_forward, size: 16, color: Colors.green),
-                label: Text(
-                  'See all',
-                  style: TextStyle(
-                    color: Colors.green,
                     fontWeight: FontWeight.w600,
+                    color: Colors.black87,
                   ),
                 ),
-                style: TextButton.styleFrom(
-                  minimumSize: Size.zero,
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ),
-            ],
-          ),
-        ),
+                const SizedBox(height: 15),
 
-        if (filters.isNotEmpty)
-          Padding(
-            padding: EdgeInsets.only(bottom: 12.0),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                children: filters
-                    .map(
-                      (filter) => Padding(
-                        padding: const EdgeInsets.only(right: 8.0),
-                        child: FilterChip(
-                          label: Text(
-                            filter,
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: selectedFilter == filter
-                                  ? FontWeight.w600
-                                  : FontWeight.normal,
-                              color: selectedFilter == filter
-                                  ? Colors.white
-                                  : Colors.black87,
-                            ),
-                          ),
-                          selected: selectedFilter == filter,
-                          onSelected: (bool selected) {
-                            onFilterSelected(selected ? filter : 'All');
-                          },
-                          backgroundColor: Colors.grey[200],
-                          selectedColor: Colors.green,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          elevation: 0,
-                          pressElevation: 2,
-                          shadowColor: Colors.black26,
-                          padding: EdgeInsets.symmetric(horizontal: 8),
-                        ),
+                // Featured Parking Spot Card
+                Container(
+                  height: 200,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    image: const DecorationImage(
+                      image: AssetImage('assets/images/parking.png'),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7),
+                        ],
                       ),
-                    )
-                    .toList(),
-              ),
-            ),
-          ),
-
-        // This container now directly builds the list from the passed 'fundraisers' data
-        fundraisers.isEmpty
-            ? Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24.0),
-                  child: Text('No fundraisers found for this filter.'),
-                ),
-              )
-            : Container(
-                height: 265,
-                child: ListView.builder(
-                  padding: EdgeInsets.symmetric(horizontal: 16.0),
-                  scrollDirection: Axis.horizontal,
-                  itemCount: fundraisers.length,
-                  itemBuilder: (context, index) {
-                    var fundraiser = fundraisers[index];
-                    double progress =
-                        fundraiser.funding / fundraiser.donationAmount;
-                    int daysLeft = fundraiser.expirationDate
-                        .difference(DateTime.now())
-                        .inDays;
-                    bool isFavorited = isFavorite(fundraiser.id);
-
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 16.0, bottom: 8.0),
-                      child: Container(
-                        width: 260,
-                        constraints: BoxConstraints(
-                          minHeight: 260,
-                          maxHeight: 280,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 8,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(16),
-                              child: Column(
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) =>
-                                                  AssociationScreen(
-                                                    fundraiser: fundraiser,
-                                                  ),
-                                            ),
-                                          );
-                                        },
-                                        splashColor: Colors.green.withOpacity(
-                                          0.1,
-                                        ),
-                                        child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Stack(
-                                              children: [
-                                                Container(
-                                                  height: 140,
-                                                  width: double.infinity,
-                                                  child: CachedNetworkImage(
-                                                    imageUrl:
-                                                        fundraiser.mainImageUrl,
-                                                    fit: BoxFit.cover,
-                                                    placeholder:
-                                                        (context, url) =>
-                                                            Container(
-                                                              color: Colors
-                                                                  .grey[300],
-                                                            ),
-                                                    errorWidget:
-                                                        (
-                                                          context,
-                                                          url,
-                                                          error,
-                                                        ) => Container(
-                                                          color:
-                                                              Colors.grey[300],
-                                                          child: Icon(
-                                                            Icons.error,
-                                                            color: Colors.red,
-                                                          ),
-                                                        ),
-                                                  ),
-                                                ),
-                                                Positioned(
-                                                  top: 8,
-                                                  right: 8,
-                                                  child: Row(
-                                                    children: [
-                                                      Container(
-                                                        padding:
-                                                            EdgeInsets.symmetric(
-                                                              horizontal: 10,
-                                                              vertical: 6,
-                                                            ),
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.black
-                                                              .withOpacity(0.7),
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                20,
-                                                              ),
-                                                        ),
-                                                        child: Row(
-                                                          children: [
-                                                            Icon(
-                                                              Icons.access_time,
-                                                              color:
-                                                                  Colors.white,
-                                                              size: 12,
-                                                            ),
-                                                            SizedBox(width: 4),
-                                                            Text(
-                                                              '$daysLeft days left',
-                                                              style: TextStyle(
-                                                                color: Colors
-                                                                    .white,
-                                                                fontSize: 12,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                      SizedBox(width: 8),
-                                                      Material(
-                                                        color: Colors.black
-                                                            .withOpacity(0.7),
-                                                        shape: CircleBorder(),
-                                                        child: InkWell(
-                                                          onTap: () =>
-                                                              toggleFavorite(
-                                                                fundraiser.id,
-                                                              ),
-                                                          customBorder:
-                                                              CircleBorder(),
-                                                          child: Padding(
-                                                            padding:
-                                                                EdgeInsets.all(
-                                                                  6,
-                                                                ),
-                                                            child: AnimatedSwitcher(
-                                                              duration: Duration(
-                                                                milliseconds:
-                                                                    300,
-                                                              ),
-                                                              transitionBuilder:
-                                                                  (
-                                                                    child,
-                                                                    animation,
-                                                                  ) {
-                                                                    return ScaleTransition(
-                                                                      scale:
-                                                                          animation,
-                                                                      child:
-                                                                          child,
-                                                                    );
-                                                                  },
-                                                              child: Icon(
-                                                                isFavorited
-                                                                    ? Icons
-                                                                          .favorite
-                                                                    : Icons
-                                                                          .favorite_border,
-                                                                color:
-                                                                    isFavorited
-                                                                    ? Colors.red
-                                                                    : Colors
-                                                                          .white,
-                                                                size: 18,
-                                                                key:
-                                                                    ValueKey<
-                                                                      bool
-                                                                    >(
-                                                                      isFavorited,
-                                                                    ),
-                                                              ),
-                                                            ),
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                Positioned(
-                                                  left: 8,
-                                                  top: 8,
-                                                  child: Container(
-                                                    padding:
-                                                        EdgeInsets.symmetric(
-                                                          horizontal: 10,
-                                                          vertical: 6,
-                                                        ),
-                                                    decoration: BoxDecoration(
-                                                      color: Colors.black
-                                                          .withOpacity(0.7),
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            20,
-                                                          ),
-                                                    ),
-                                                    child: Text(
-                                                      fundraiser.category,
-                                                      style: TextStyle(
-                                                        color: Colors.white,
-                                                        fontSize: 10,
-                                                        fontWeight:
-                                                            FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            Expanded(
-                                              child: Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 12.0,
-                                                      vertical: 4.0,
-                                                    ),
-                                                child: Column(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment.start,
-                                                  children: [
-                                                    Text(
-                                                      fundraiser.title,
-                                                      style: TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.w700,
-                                                        fontSize: 16,
-                                                      ),
-                                                      maxLines: 1,
-                                                      overflow:
-                                                          TextOverflow.ellipsis,
-                                                    ),
-                                                    SizedBox(height: 4),
-                                                    ClipRRect(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            4,
-                                                          ),
-                                                      child: LinearProgressIndicator(
-                                                        value: progress,
-                                                        backgroundColor:
-                                                            Colors.grey[200],
-                                                        valueColor:
-                                                            AlwaysStoppedAnimation<
-                                                              Color
-                                                            >(
-                                                              progress >= 1.0
-                                                                  ? Colors.blue
-                                                                  : Colors
-                                                                        .green,
-                                                            ),
-                                                        minHeight: 4,
-                                                      ),
-                                                    ),
-                                                    SizedBox(height: 4),
-                                                    Row(
-                                                      mainAxisAlignment:
-                                                          MainAxisAlignment
-                                                              .spaceBetween,
-                                                      children: [
-                                                        Row(
-                                                          children: [
-                                                            Text(
-                                                              '\$${fundraiser.funding.toStringAsFixed(0)}',
-                                                              style: TextStyle(
-                                                                color: Colors
-                                                                    .green,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w700,
-                                                                fontSize: 13,
-                                                              ),
-                                                            ),
-                                                            Text(
-                                                              ' of \$${fundraiser.donationAmount.toStringAsFixed(0)}',
-                                                              style: TextStyle(
-                                                                color: Colors
-                                                                    .grey[600],
-                                                                fontSize: 13,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                        Row(
-                                                          children: [
-                                                            Icon(
-                                                              Icons.people,
-                                                              size: 13,
-                                                              color: Colors
-                                                                  .grey[600],
-                                                            ),
-                                                            SizedBox(width: 2),
-                                                            Text(
-                                                              '${fundraiser.donators} donors',
-                                                              style: TextStyle(
-                                                                color: Colors
-                                                                    .grey[600],
-                                                                fontSize: 11,
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w500,
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
+                                  const Text(
+                                    'Downtown Garage',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
-                                  Container(
-                                    width: double.infinity,
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        colors: [
-                                          Color(0xFF66BB6A),
-                                          Color(0xFF4CAF50),
-                                          Color(0xFF388E3C),
-                                          Color(0xFF2E7D32),
-                                        ],
-                                        begin: Alignment.centerLeft,
-                                        end: Alignment.centerRight,
-                                      ),
-                                      borderRadius: BorderRadius.only(
-                                        bottomLeft: Radius.circular(16),
-                                        bottomRight: Radius.circular(16),
-                                      ),
+                                  const Text(
+                                    '5 min walk',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 14,
                                     ),
-                                    child: Material(
-                                      color: Colors.transparent,
-                                      child: InkWell(
-                                        onTap: () {
-                                          Navigator.push(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (context) => ChatPage(),
-                                            ),
-                                          );
-                                        },
-                                        child: Padding(
-                                          padding: EdgeInsets.symmetric(
-                                            vertical: 12,
-                                          ),
-                                          child: Text(
-                                            'Become a Part',
-                                            textAlign: TextAlign.center,
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Row(
+                                    children: [
+                                      ...List.generate(4, (index) => const Icon(
+                                        Icons.star,
+                                        color: Colors.amber,
+                                        size: 16,
+                                      )),
+                                      const Icon(
+                                        Icons.star_border,
+                                        color: Colors.amber,
+                                        size: 16,
                                       ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  const Text(
+                                    'Available Spots',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const Text(
+                                    '45',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
                                     ),
                                   ),
                                 ],
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 30),
+
+                // Popular Parking Spots section
+                const Text(
+                  'Popular Parking Spots',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 15),
+
+                // Popular Spots Grid
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 3,
+                    childAspectRatio: 0.85,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  itemCount: popularSpots.length,
+                  itemBuilder: (context, index) {
+                    final spot = popularSpots[index];
+                    return Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(12),
+                                ),
+                                image: DecorationImage(
+                                  image: AssetImage(spot.imagePath),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            flex: 2,
+                            child: Padding(
+                              padding: const EdgeInsets.all(8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    spot.name,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    spot.walkTime,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey[600],
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      ...List.generate(4, (i) => Icon(
+                                        Icons.star,
+                                        color: Colors.amber,
+                                        size: 10,
+                                      )),
+                                      const Icon(
+                                        Icons.star_border,
+                                        color: Colors.amber,
+                                        size: 10,
+                                      ),
+                                      if (spot.hasShuttle) ...[
+                                        const Spacer(),
+                                        const Icon(
+                                          Icons.directions_bus,
+                                          color: Color(0xFF4DB6AC),
+                                          size: 12,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 30),
+
+                // Map Section
+                Container(
+                  height: 200,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4DB6AC).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Stack(
+                    children: [
+                      // Map-like pattern
+                      CustomPaint(
+                        size: const Size(double.infinity, 200),
+                        painter: MapPatternPainter(),
+                      ),
+                      const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.location_on,
+                              color: Color(0xFF4DB6AC),
+                              size: 40,
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              'Locate nearby parking spots',
+                              style: TextStyle(
+                                color: Color(0xFF4DB6AC),
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    );
-                  },
-                ),
-              ),
-      ],
-    );
-  }
-}
-
-// --- REUSABLE WIDGETS ---
-
-class VideoCard extends StatelessWidget {
-  final String image;
-  final String title;
-  final VoidCallback onTap;
-
-  const VideoCard({
-    required this.image,
-    required this.title,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 200,
-        margin: EdgeInsets.only(right: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              height: 280,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.15),
-                    blurRadius: 12,
-                    offset: Offset(0, 4),
+                    ],
                   ),
-                ],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(24),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    CachedNetworkImage(
-                      imageUrl: image,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        color: Colors.grey[200],
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.green,
-                            ),
-                          ),
+                ),
+                const SizedBox(height: 30),
+
+                // Recent Searches
+                const Text(
+                  'Recent Searches',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 15),
+
+                ...recentSearches.map((search) => Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF4DB6AC),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          Icons.local_parking,
+                          color: Colors.white,
+                          size: 20,
                         ),
                       ),
-                      errorWidget: (context, url, error) => Container(
-                        color: Colors.grey[200],
-                        child: Icon(Icons.error),
-                      ),
-                    ),
-                    Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [
-                            Colors.transparent,
-                            Colors.black.withOpacity(0.8),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              search.name,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              search.walkTime,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
                           ],
                         ),
                       ),
+                      Text(
+                        search.visitedDate,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                    ],
+                  ),
+                )).toList(),
+
+                const SizedBox(height: 30),
+
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildActionButton(
+                        'Share Spot',
+                        Icons.share,
+                        Colors.grey[100]!,
+                        Colors.black87,
+                      ),
                     ),
-                    Positioned(
-                      bottom: 16,
-                      left: 16,
-                      right: 16,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black.withOpacity(0.5),
-                                  offset: Offset(0, 1),
-                                  blurRadius: 4,
-                                ),
-                              ],
-                            ),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          SizedBox(height: 8),
-                          Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.play_arrow_rounded,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                                SizedBox(width: 4),
-                                Text(
-                                  'Watch Now',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildActionButton(
+                        'Get Directions',
+                        Icons.directions,
+                        Colors.grey[100]!,
+                        Colors.black87,
                       ),
                     ),
                   ],
                 ),
-              ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: _buildActionButton(
+                    'Reserve Now',
+                    Icons.book_online,
+                    Colors.black,
+                    Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 30),
+
+                // Parking Tips
+                const Text(
+                  'Parking Tips',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 15),
+
+                ...parkingTips.map((tip) => Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          image: DecorationImage(
+                            image: AssetImage(tip.imagePath),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              tip.title,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              tip.description,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                )).toList(),
+
+                const SizedBox(height: 30),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
   }
-}
 
-class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
-  final String title;
-  final bool showLogo;
-  final List<Widget>? actions;
-
-  const ModernAppBar({
-    Key? key,
-    required this.title,
-    this.showLogo = false,
-    this.actions,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return AppBar(
-      title: Row(
+  Widget _buildActionButton(String text, IconData icon, Color backgroundColor, Color textColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(12),
+        border: backgroundColor == Colors.grey[100]
+            ? Border.all(color: Colors.grey[300]!)
+            : null,
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (showLogo)
-            Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: Icon(
-                Icons.volunteer_activism,
-                color: Colors.green,
-              ), // Example logo
+          Icon(icon, color: textColor, size: 18),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: TextStyle(
+              color: textColor,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
             ),
-          Text(title),
+          ),
         ],
       ),
-      actions: actions,
     );
+  }
+}
+
+class MapPatternPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFF4DB6AC).withOpacity(0.3)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+
+    // Draw a simple map-like grid pattern
+    final path = Path();
+    
+    // Horizontal lines
+    for (int i = 1; i < 6; i++) {
+      final y = (size.height / 6) * i;
+      path.moveTo(20, y);
+      path.lineTo(size.width - 20, y);
+    }
+    
+    // Vertical lines
+    for (int i = 1; i < 8; i++) {
+      final x = (size.width / 8) * i;
+      path.moveTo(x, 20);
+      path.lineTo(x, size.height - 20);
+    }
+    
+    // Diagonal lines for streets
+    path.moveTo(0, size.height * 0.3);
+    path.lineTo(size.width, size.height * 0.7);
+    
+    path.moveTo(size.width * 0.2, 0);
+    path.lineTo(size.width * 0.8, size.height);
+    
+    canvas.drawPath(path, paint);
   }
 
   @override
-  Size get preferredSize => Size.fromHeight(kToolbarHeight);
-}
-
-// --- FAKE/PLACEHOLDER SCREENS (to make navigation work) ---
-
-class TopUpScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text('Top Up')),
-    body: Center(child: Text('TopUpScreen')),
-  );
-}
-
-class NotificationScreen extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text('Notifications')),
-    body: Center(child: Text('NotificationScreen')),
-  );
-}
-
-class SearchPage extends StatelessWidget {
-  final int? initialTabIndex;
-  SearchPage({this.initialTabIndex});
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text('Search')),
-    body: Center(child: Text('SearchPage')),
-  );
-}
-
-class AssociationScreen extends StatelessWidget {
-  final Fundraiser? fundraiser; // Changed to use the local model
-  AssociationScreen({this.fundraiser});
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(fundraiser?.title ?? 'Association')),
-    body: Center(child: Text('Details for: ${fundraiser?.title}')),
-  );
-}
-
-class ChatPage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text('Chat')),
-    body: Center(child: Text('ChatPage')),
-  );
-}
-
-class ReelsScreen extends StatelessWidget {
-  final int? initialIndex;
-  final List<VideoReel>? videos; // Changed to use the local model
-  ReelsScreen({this.initialIndex, this.videos});
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text('Reels')),
-    body: Center(child: Text('ReelsScreen')),
-  );
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }
