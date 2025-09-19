@@ -35,6 +35,25 @@ class ParkingZone {
   double get occupancyRate => occupiedSpots / totalSpots;
 }
 
+// --- RESERVATION DATA MODEL ---
+class ParkingReservation {
+  final String id;
+  final ParkingZone zone;
+  final DateTime fromTime;
+  final DateTime toTime;
+  final double totalCost;
+  
+  ParkingReservation({
+    required this.id,
+    required this.zone,
+    required this.fromTime,
+    required this.toTime,
+    required this.totalCost,
+  });
+  
+  Duration get duration => toTime.difference(fromTime);
+}
+
 // --- MAIN WIDGET ---
 
 class MapScreen extends StatefulWidget {
@@ -56,6 +75,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   ParkingZone? _activeParkingSession;
   DateTime? _parkingStartTime;
   Timer? _parkingTimer;
+  
+  // --- State for Reservation Functionality ---
+  List<ParkingReservation> _reservations = [];
 
   @override
   void initState() {
@@ -110,42 +132,14 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       {
         'name': 'Centre Commercial Bab Ezzouar',
         'address': 'Bab Ezzouar, Alger',
-        'location': LatLng(36.7262, 3.1837),
+        'location': LatLng(36.7125, 3.1978),
         'totalSpots': 180,
         'pricePerHour': 120.0,
       },
       {
-        'name': 'Aéroport Houari Boumediene',
-        'address': 'Dar El Beïda, Alger',
-        'location': LatLng(36.6910, 3.2154),
-        'totalSpots': 500,
-        'pricePerHour': 200.0,
-      },
-      {
-        'name': 'Université USTHB',
-        'address': 'Bab Ezzouar, Alger',
-        'location': LatLng(36.7081, 3.1536),
-        'totalSpots': 300,
-        'pricePerHour': 80.0,
-      },
-      {
-        'name': 'Place des Martyrs',
+        'name': 'Sofia Parking',
         'address': 'Alger Centre, Alger',
-        'location': LatLng(36.7753, 3.0512),
-        'totalSpots': 120,
-        'pricePerHour': 150.0,
-      },
-      {
-        'name': 'Hôpital Mustapha Pacha',
-        'address': 'Sidi M\'Hamed, Alger',
-        'location': LatLng(36.7528, 3.0423),
-        'totalSpots': 90,
-        'pricePerHour': 100.0,
-      },
-      {
-        'name': 'Port d\'Alger',
-        'address': 'Alger Centre, Alger',
-        'location': LatLng(36.7972, 3.0597),
+        'location': LatLng(36.7712, 3.0597),
         'totalSpots': 150,
         'pricePerHour': 180.0,
       },
@@ -361,9 +355,123 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         zone: zone,
         currentLocation: currentLocation,
         onBookSpot: (bookedZone) {
-          _startParking(bookedZone);
-          Navigator.pop(context); // Close the sheet after booking
+          Navigator.pop(context); // Close the sheet first
+          _showReservationDialog(bookedZone);
         },
+      ),
+    );
+  }
+
+  // --- RESERVATION FUNCTIONALITY ---
+  void _showReservationDialog(ParkingZone zone) {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Center(
+          child: Material(
+            type: MaterialType.transparency,
+            child: ReservationDialog(zone: zone),
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 1),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+          )),
+          child: ScaleTransition(
+            scale: Tween<double>(
+              begin: 0.8,
+              end: 1.0,
+            ).animate(CurvedAnimation(
+              parent: animation,
+              curve: Curves.easeOutCubic,
+            )),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+  
+  int _timeToMinutes(TimeOfDay time) {
+    return time.hour * 60 + time.minute;
+  }
+  
+  Duration _calculateDuration(TimeOfDay from, TimeOfDay to) {
+    final fromMinutes = _timeToMinutes(from);
+    final toMinutes = _timeToMinutes(to);
+    return Duration(minutes: toMinutes - fromMinutes);
+  }
+  
+  void _makeReservation(ParkingZone zone, DateTime date, TimeOfDay fromTime, TimeOfDay toTime) {
+    final fromDateTime = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      fromTime.hour,
+      fromTime.minute,
+    );
+    
+    final toDateTime = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      toTime.hour,
+      toTime.minute,
+    );
+    
+    final duration = toDateTime.difference(fromDateTime);
+    final totalCost = (duration.inMinutes / 60) * zone.pricePerHour;
+    
+    final reservation = ParkingReservation(
+      id: 'res_${DateTime.now().millisecondsSinceEpoch}',
+      zone: zone,
+      fromTime: fromDateTime,
+      toTime: toDateTime,
+      totalCost: totalCost,
+    );
+    
+    setState(() {
+      _reservations.add(reservation);
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Container(
+          padding: const EdgeInsets.all(8),
+          child: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('Reservation Confirmed!', 
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text('${zone.name}'),
+                    Text('${fromTime.format(context)} - ${toTime.format(context)}'),
+                    Text('Cost: ${totalCost.toStringAsFixed(2)} DA'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        backgroundColor: Colors.green.shade600,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -1067,6 +1175,599 @@ class ActiveParkingCard extends StatelessWidget {
                   child: const Text('End', style: TextStyle(color: Colors.white)),
                 ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- MODERN RESERVATION DIALOG ---
+class ReservationDialog extends StatefulWidget {
+  final ParkingZone zone;
+
+  const ReservationDialog({Key? key, required this.zone}) : super(key: key);
+
+  @override
+  State<ReservationDialog> createState() => _ReservationDialogState();
+}
+
+class _ReservationDialogState extends State<ReservationDialog>
+    with TickerProviderStateMixin {
+  late AnimationController _slideController;
+  late AnimationController _pulseController;
+  late Animation<double> _slideAnimation;
+  late Animation<double> _pulseAnimation;
+  
+  DateTime selectedDate = DateTime.now();
+  TimeOfDay fromTime = TimeOfDay.now();
+  late TimeOfDay toTime;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Initialize with valid future times in Algiers timezone
+    final currentAlgiersTime = _getCurrentAlgiersTime();
+    final nextHour = TimeOfDay(
+      hour: (currentAlgiersTime.hour + 1) % 24,
+      minute: currentAlgiersTime.minute,
+    );
+    
+    // Set fromTime to next hour or current time + 15 minutes if it's in the future
+    if (_isTimeInFuture(TimeOfDay(hour: currentAlgiersTime.hour, minute: currentAlgiersTime.minute + 15))) {
+      fromTime = TimeOfDay(hour: currentAlgiersTime.hour, minute: currentAlgiersTime.minute + 15);
+    } else {
+      fromTime = nextHour;
+    }
+    
+    // Set toTime to be 59 minutes after fromTime
+    toTime = TimeOfDay(
+      hour: fromTime.hour + (fromTime.minute >= 1 ? 1 : 0),
+      minute: (fromTime.minute + 59) % 60,
+    );
+    
+    _slideController = AnimationController(
+      duration: const Duration(milliseconds: 600),
+      vsync: this,
+    );
+    
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 1500),
+      vsync: this,
+    );
+    
+    _slideAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeOutCubic,
+    ));
+    
+    _pulseAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.05,
+    ).animate(CurvedAnimation(
+      parent: _pulseController,
+      curve: Curves.easeInOut,
+    ));
+    
+    _slideController.forward();
+    _pulseController.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _slideController.dispose();
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  int _timeToMinutes(TimeOfDay time) {
+    return time.hour * 60 + time.minute;
+  }
+
+  Duration _calculateDuration(TimeOfDay from, TimeOfDay to) {
+    final fromMinutes = _timeToMinutes(from);
+    final toMinutes = _timeToMinutes(to);
+    return Duration(minutes: toMinutes - fromMinutes);
+  }
+
+  // Get current time in Algiers timezone (UTC+1)
+  TimeOfDay _getCurrentAlgiersTime() {
+    final now = DateTime.now().toUtc().add(const Duration(hours: 1)); // Algiers is UTC+1
+    return TimeOfDay(hour: now.hour, minute: now.minute);
+  }
+
+  // Check if a time is in the future (after current Algiers time)
+  bool _isTimeInFuture(TimeOfDay time) {
+    final currentTime = _getCurrentAlgiersTime();
+    final currentMinutes = _timeToMinutes(currentTime);
+    final selectedMinutes = _timeToMinutes(time);
+    return selectedMinutes > currentMinutes;
+  }
+
+  // Validate time selection
+  bool _isValidTimeSelection(TimeOfDay fromTime, TimeOfDay toTime) {
+    // Check if fromTime is in the future
+    if (!_isTimeInFuture(fromTime)) {
+      return false;
+    }
+    // Check if toTime is after fromTime
+    return _timeToMinutes(toTime) > _timeToMinutes(fromTime);
+  }
+
+  void _makeReservation() {
+    final mapScreenState = context.findAncestorStateOfType<_MapScreenState>();
+    if (mapScreenState != null) {
+      mapScreenState._makeReservation(widget.zone, selectedDate, fromTime, toTime);
+    }
+    Navigator.pop(context);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final duration = _calculateDuration(fromTime, toTime);
+    final cost = (duration.inMinutes / 60) * widget.zone.pricePerHour;
+    
+    return AnimatedBuilder(
+      animation: _slideAnimation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, (1 - _slideAnimation.value) * 50),
+          child: Opacity(
+            opacity: _slideAnimation.value,
+            child: Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 20,
+                    offset: const Offset(0, 10),
+                  ),
+                ],
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Header
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Icon(
+                            Icons.local_parking_rounded,
+                            color: Colors.blue.shade600,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Reserve Parking',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              Text(
+                                widget.zone.name,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey.shade600,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Date Display with Current Time
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.blue.shade50, Colors.blue.shade100],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.calendar_today, color: Colors.blue.shade600),
+                              const SizedBox(width: 12),
+                              Text(
+                                'Today, ${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.blue.shade800,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(Icons.access_time, color: Colors.blue.shade600, size: 16),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Current time (Algiers): ${_getCurrentAlgiersTime().format(context)}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.blue.shade700,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 24),
+                    
+                    // Time Selection
+                    const Text(
+                      'Select Time',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildTimeSelector(
+                            'From',
+                            fromTime,
+                            Icons.access_time,
+                            Colors.green,
+                            () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: fromTime,
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      timePickerTheme: TimePickerThemeData(
+                                        backgroundColor: Colors.white,
+                                        hourMinuteShape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        dayPeriodShape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (picked != null) {
+                                // Validate that the picked time is in the future
+                                if (!_isTimeInFuture(picked)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Row(
+                                        children: [
+                                          Icon(Icons.access_time, color: Colors.white),
+                                          SizedBox(width: 8),
+                                          Text('Reservation must be after current time'),
+                                        ],
+                                      ),
+                                      backgroundColor: Colors.orange.shade600,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                
+                                setState(() {
+                                  fromTime = picked;
+                                  // Auto-adjust toTime to be at least 30 minutes after fromTime
+                                  final minToTime = TimeOfDay(
+                                    hour: fromTime.hour + (fromTime.minute >= 30 ? 1 : 0),
+                                    minute: fromTime.minute >= 30 ? fromTime.minute - 30 : fromTime.minute + 30,
+                                  );
+                                  if (_timeToMinutes(toTime) <= _timeToMinutes(minToTime)) {
+                                    toTime = minToTime;
+                                  }
+                                });
+                              }
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.arrow_forward, color: Colors.grey.shade600),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _buildTimeSelector(
+                            'To',
+                            toTime,
+                            Icons.access_time_filled,
+                            Colors.orange,
+                            () async {
+                              final picked = await showTimePicker(
+                                context: context,
+                                initialTime: toTime,
+                                builder: (context, child) {
+                                  return Theme(
+                                    data: Theme.of(context).copyWith(
+                                      timePickerTheme: TimePickerThemeData(
+                                        backgroundColor: Colors.white,
+                                        hourMinuteShape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        dayPeriodShape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                      ),
+                                    ),
+                                    child: child!,
+                                  );
+                                },
+                              );
+                              if (picked != null) {
+                                // Validate that toTime is after fromTime with minimum duration
+                                final minToTimeMinutes = _timeToMinutes(fromTime) + 30; // Minimum 30 minutes
+                                final pickedMinutes = _timeToMinutes(picked);
+                                
+                                if (pickedMinutes <= _timeToMinutes(fromTime)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Row(
+                                        children: [
+                                          Icon(Icons.warning, color: Colors.white),
+                                          SizedBox(width: 8),
+                                          Text('End time must be after start time'),
+                                        ],
+                                      ),
+                                      backgroundColor: Colors.red.shade600,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  );
+                                } else if (pickedMinutes < minToTimeMinutes) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: const Row(
+                                        children: [
+                                          Icon(Icons.schedule, color: Colors.white),
+                                          SizedBox(width: 8),
+                                          Text('Minimum reservation duration is 30 minutes'),
+                                        ],
+                                      ),
+                                      backgroundColor: Colors.orange.shade600,
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  setState(() {
+                                    toTime = picked;
+                                  });
+                                }
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Summary Card
+                    AnimatedBuilder(
+                      animation: _pulseAnimation,
+                      builder: (context, child) {
+                        return Transform.scale(
+                          scale: _pulseAnimation.value,
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.purple.shade50, Colors.purple.shade100],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: Colors.purple.shade200),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Duration',
+                                          style: TextStyle(
+                                            color: Colors.purple.shade600,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${duration.inHours}h ${duration.inMinutes.remainder(60)}m',
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          'Total Cost',
+                                          style: TextStyle(
+                                            color: Colors.purple.shade600,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${cost.toStringAsFixed(2)} DA',
+                                          style: const TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    
+                    const SizedBox(height: 32),
+                    
+                    // Action Buttons
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                                side: BorderSide(color: Colors.grey.shade300),
+                              ),
+                            ),
+                            child: Text(
+                              'Cancel',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey.shade600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton(
+                            onPressed: _isValidTimeSelection(fromTime, toTime) ? _makeReservation : null,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade600,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.check_circle_outline),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Confirm Reservation',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTimeSelector(String label, TimeOfDay time, IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 24),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              time.format(context),
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black87,
+              ),
             ),
           ],
         ),
