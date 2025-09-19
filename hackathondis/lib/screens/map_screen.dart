@@ -49,6 +49,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   List<ParkingZone> parkingZones = []; // Use a list directly
   LatLng? currentLocation;
   AnimationController? _mapAnimationController;
+  StreamSubscription<Position>? _positionStreamSubscription;
 
   // --- State for Parking Functionality ---
   ParkingZone? _activeParkingSession;
@@ -59,19 +60,28 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _initializeMapAndData();
+    // Optionally start location tracking automatically
+    // _startLocationTracking(); // Uncomment if you want auto-tracking
   }
 
   Future<void> _initializeMapAndData() async {
     LatLng initialCenter =
         await _loadLastPosition() ?? const LatLng(36.775, 3.058); // Algiers Center
-    await _fetchCurrentUserLocation(moveCamera: false); // Fetch but don't move yet
+    
+    // Try to get current location first
+    await _fetchCurrentUserLocation(moveCamera: false);
     final dataCenter = currentLocation ?? initialCenter;
 
     final zones = await _generateMockParkingZones(dataCenter, 25);
     if (mounted) {
       setState(() {
         parkingZones = zones;
-        mapController.move(dataCenter, 14.0);
+        // If we have current location, center on it, otherwise use last position
+        if (currentLocation != null) {
+          mapController.move(currentLocation!, 14.0);
+        } else {
+          mapController.move(dataCenter, 14.0);
+        }
         _highlightNearbyZones();
       });
     }
@@ -124,15 +134,46 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     try {
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
-        // Optionally, show a dialog to enable location
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location services are disabled. Please enable them in settings.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
         return;
       }
+      
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
-        if (permission != LocationPermission.whileInUse &&
-            permission != LocationPermission.always) return;
+        if (permission == LocationPermission.denied) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Location permission denied. Cannot show current position.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
       }
+      
+      if (permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location permission permanently denied. Please enable in app settings.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 4),
+            ),
+          );
+        }
+        return;
+      }
+
       Position position = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high);
       if (mounted) {
@@ -140,13 +181,67 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           currentLocation = LatLng(position.latitude, position.longitude);
         });
         if (moveCamera) {
-          _animatedMapMove(currentLocation!, 15.0);
+          _animatedMapMove(currentLocation!, 16.0);
         }
         _highlightNearbyZones();
+        
+        // Show success message when location is found
+        if (moveCamera) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Current location found!'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
       }
     } catch (e) {
       debugPrint("Error getting location: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to get current location: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
+  }
+
+  // Method to start continuous location tracking
+  void _startLocationTracking() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+    
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission != LocationPermission.whileInUse &&
+          permission != LocationPermission.always) return;
+    }
+
+    const LocationSettings locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 10, // Update only when user moves 10 meters
+    );
+
+    _positionStreamSubscription = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen((Position position) {
+      if (mounted) {
+        setState(() {
+          currentLocation = LatLng(position.latitude, position.longitude);
+        });
+        _highlightNearbyZones();
+      }
+    });
+  }
+
+  // Method to stop location tracking
+  void _stopLocationTracking() {
+    _positionStreamSubscription?.cancel();
+    _positionStreamSubscription = null;
   }
 
   void _highlightNearbyZones() {
@@ -238,6 +333,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   void dispose() {
     _mapAnimationController?.dispose();
     _parkingTimer?.cancel();
+    _positionStreamSubscription?.cancel();
     super.dispose();
   }
 
@@ -310,13 +406,62 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               ),
             ],
           ),
+          // Location tracking buttons
           Positioned(
             bottom: _activeParkingSession != null ? 120 : 20,
             right: 20,
-            child: FloatingActionButton(
-              onPressed: () => _fetchCurrentUserLocation(),
-              backgroundColor: Colors.blueAccent,
-              child: const Icon(Icons.my_location, color: Colors.white),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Continuous tracking toggle button
+                FloatingActionButton(
+                  mini: true,
+                  onPressed: () {
+                    if (_positionStreamSubscription != null) {
+                      _stopLocationTracking();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Location tracking stopped'),
+                          backgroundColor: Colors.orange,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    } else {
+                      _startLocationTracking();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Continuous location tracking started'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                  backgroundColor: _positionStreamSubscription != null 
+                      ? Colors.green 
+                      : Colors.grey.shade600,
+                  tooltip: _positionStreamSubscription != null 
+                      ? 'Stop location tracking' 
+                      : 'Start location tracking',
+                  heroTag: 'tracking_button',
+                  child: Icon(
+                    _positionStreamSubscription != null 
+                        ? Icons.location_on 
+                        : Icons.location_off,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Get current location button
+                FloatingActionButton(
+                  onPressed: () => _fetchCurrentUserLocation(),
+                  backgroundColor: Colors.blueAccent,
+                  tooltip: 'Go to my location',
+                  heroTag: 'location_button',
+                  child: const Icon(Icons.gps_fixed, color: Colors.white),
+                ),
+              ],
             ),
           ),
           Positioned(top: 10, left: 10, child: _buildLegend()),
@@ -487,27 +632,49 @@ class __UserLocationMarkerState extends State<_UserLocationMarker>
       child: Stack(
         alignment: Alignment.center,
         children: [
+          // Outer pulsing ring
           FadeTransition(
-            opacity: Tween<double>(begin: 0.7, end: 0.0)
-                .animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn)),
+            opacity: Tween<double>(begin: 0.8, end: 0.0)
+                .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
             child: ScaleTransition(
-              scale: Tween<double>(begin: 0.3, end: 1.0)
+              scale: Tween<double>(begin: 0.5, end: 1.2)
                   .animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut)),
               child: Container(
+                width: 60,
+                height: 60,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.blueAccent.withOpacity(0.5),
+                  color: Colors.blueAccent.withOpacity(0.3),
+                  border: Border.all(color: Colors.blueAccent.withOpacity(0.5), width: 1),
                 ),
               ),
             ),
           ),
+          // Inner accuracy circle
           Container(
-            width: 20,
-            height: 20,
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.blueAccent.withOpacity(0.2),
+              border: Border.all(color: Colors.blueAccent.withOpacity(0.4), width: 1),
+            ),
+          ),
+          // Center dot
+          Container(
+            width: 16,
+            height: 16,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.blueAccent,
-              border: Border.all(color: Colors.white, width: 2.5),
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
           ),
         ],
