@@ -50,6 +50,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   LatLng? currentLocation;
   AnimationController? _mapAnimationController;
   StreamSubscription<Position>? _positionStreamSubscription;
+  bool _isMapLoading = true; // Add loading state
 
   // --- State for Parking Functionality ---
   ParkingZone? _activeParkingSession;
@@ -72,10 +73,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     await _fetchCurrentUserLocation(moveCamera: false);
     final dataCenter = currentLocation ?? initialCenter;
 
-    final zones = await _generateMockParkingZones(dataCenter, 25);
+    final zones = await _generateMockParkingZones(dataCenter, 15); // Reduced from 25 to 15 for better performance
     if (mounted) {
       setState(() {
         parkingZones = zones;
+        _isMapLoading = false; // Set loading to false
         // If we have current location, center on it, otherwise use last position
         if (currentLocation != null) {
           mapController.move(currentLocation!, 14.0);
@@ -175,13 +177,15 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       }
 
       Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high);
+          desiredAccuracy: LocationAccuracy.medium, // Changed from high to medium for better performance
+          timeLimit: const Duration(seconds: 10), // Add timeout to prevent hanging
+      );
       if (mounted) {
         setState(() {
           currentLocation = LatLng(position.latitude, position.longitude);
         });
         if (moveCamera) {
-          _animatedMapMove(currentLocation!, 16.0);
+          _animatedMapMove(currentLocation!, 15.0); // Reduced zoom for smoother animation
         }
         _highlightNearbyZones();
         
@@ -222,8 +226,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     }
 
     const LocationSettings locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 10, // Update only when user moves 10 meters
+      accuracy: LocationAccuracy.medium, // Changed to medium for better performance
+      distanceFilter: 15, // Increased to 15 meters to reduce updates
+      timeLimit: Duration(seconds: 30), // Add timeout for location updates
     );
 
     _positionStreamSubscription = Geolocator.getPositionStream(
@@ -263,7 +268,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   void _animatedMapMove(LatLng destLocation, double destZoom) {
     _mapAnimationController?.dispose();
     _mapAnimationController = AnimationController(
-        duration: const Duration(milliseconds: 1000), vsync: this);
+        duration: const Duration(milliseconds: 800), vsync: this); // Reduced duration for smoother animation
     final latTween = Tween<double>(
         begin: mapController.camera.center.latitude, end: destLocation.latitude);
     final lngTween = Tween<double>(
@@ -271,7 +276,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     final zoomTween =
         Tween<double>(begin: mapController.camera.zoom, end: destZoom);
     final animation = CurvedAnimation(
-        parent: _mapAnimationController!, curve: Curves.fastOutSlowIn);
+        parent: _mapAnimationController!, curve: Curves.easeInOut); // Changed curve for smoother animation
 
     _mapAnimationController!.addListener(() {
       mapController.move(
@@ -349,20 +354,44 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
             options: MapOptions(
               initialCenter: currentLocation ?? const LatLng(36.775, 3.058),
               initialZoom: 14.0,
+              minZoom: 10.0,
+              maxZoom: 18.0,
+              // Performance optimizations
+              interactionOptions: const InteractionOptions(
+                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+              ),
               onPositionChanged: (camera, hasGesture) {
                 if (hasGesture) _saveLastPosition();
               },
+              // Reduce animation jank
+              cameraConstraint: CameraConstraint.contain(
+                bounds: LatLngBounds(
+                  const LatLng(35.0, 1.0), // Southwest Algeria
+                  const LatLng(38.0, 5.0), // Northeast Algeria
+                ),
+              ),
             ),
             children: [
               TileLayer(
                 urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                 userAgentPackageName: 'com.example.hackathondis',
+                // Performance optimizations
+                maxZoom: 18,
+                maxNativeZoom: 18,
+                tileSize: 256,
+                // Better caching
+                retinaMode: false, // Disable retina for better performance
+                // Error handling
+                errorTileCallback: (tile, error, stackTrace) {
+                  debugPrint('Tile error: $error');
+                },
               ),
               MarkerClusterLayerWidget(
                 options: MarkerClusterLayerOptions(
-                  maxClusterRadius: 120,
-                  size: const Size(40, 40),
-                  // fitBoundsOptions removed: not supported in current package version
+                  maxClusterRadius: 80, // Reduced for better performance
+                  size: const Size(35, 35), // Slightly smaller
+                  centerMarkerOnClick: true,
+                  spiderfyCluster: false, // Disable for better performance
                   markers: [
                     ...parkingZones.map(
                       (zone) => Marker(
@@ -406,6 +435,30 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               ),
             ],
           ),
+          // Loading overlay
+          if (_isMapLoading)
+            Container(
+              color: Colors.white.withOpacity(0.8),
+              child: const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+                    ),
+                    SizedBox(height: 16),
+                    Text(
+                      'Loading map...',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           // Location tracking buttons
           Positioned(
             bottom: _activeParkingSession != null ? 120 : 20,
