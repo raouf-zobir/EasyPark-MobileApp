@@ -1,6 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../main.dart'; // To access AppColors
 
 class SignupScreen extends StatefulWidget {
@@ -49,13 +51,58 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
 
   void _handleSignup() async {
     setState(() => _isLoading = true);
-    await Future.delayed(const Duration(seconds: 2));
-    // TODO: Add your real signup logic here.
-    print('Signing up with Name: ${_nameController.text}, Email: ${_emailController.text}');
-    if (mounted) {
+
+    // Simple validation
+    if (_nameController.text.isEmpty ||
+        _emailController.text.isEmpty ||
+        _passwordController.text.isEmpty ||
+        _passwordCheckController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill in all fields')),
+      );
       setState(() => _isLoading = false);
-      // On success, maybe show a verification message and navigate to login
-      // Navigator.pushReplacementNamed(context, '/login');
+      return;
+    }
+
+    if (_passwordController.text != _passwordCheckController.text) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Passwords do not match')),
+      );
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse('http://192.168.96.235:3000/api/auth/signup'), // Updated to use the working IP address
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'name': _nameController.text,
+          'email': _emailController.text,
+          'password': _passwordController.text,
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(data['message'] ?? 'Signup successful')),
+        );
+        Navigator.pushReplacementNamed(context, '/login');
+      } else {
+        final error = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error['error'] ?? 'Signup failed')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('An error occurred. Please try again.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

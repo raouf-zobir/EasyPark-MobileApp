@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../main.dart'; // To access AppColors
 
 class LoginScreen extends StatefulWidget {
@@ -20,10 +22,6 @@ class _LoginScreenState extends State<LoginScreen>
   bool _isLoadingLogin = false;
   bool _isLoadingGoogle = false;
   bool _obscurePassword = true;
-
-  // Static credentials for demo
-  final String _validEmail = '123';
-  final String _validPassword = '123';
 
   @override
   void initState() {
@@ -52,7 +50,6 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  // Modified to use static authentication
   void _handleLogin() async {
     setState(() => _isLoadingLogin = true);
 
@@ -65,21 +62,37 @@ class _LoginScreenState extends State<LoginScreen>
       return;
     }
 
-    // Static authentication check
-    if (_emailController.text == _validEmail &&
-        _passwordController.text == _validPassword) {
-      await Future.delayed(
-        const Duration(seconds: 1),
-      ); // Simulate network delay
-      Navigator.pushReplacementNamed(context, '/navbar');
-    } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Invalid credentials')));
-    }
+    try {
+      final response = await http.post(
+        Uri.parse('http://192.168.96.235:3000/api/auth/login'), // Corrected syntax
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': _emailController.text,
+          'password': _passwordController.text,
+        }),
+      );
 
-    if (mounted) {
-      setState(() => _isLoadingLogin = false);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Welcome, ${data['data']['user']['name']}!')),
+        );
+        Navigator.pushReplacementNamed(context, '/navbar');
+      } else {
+        final error = jsonDecode(response.body);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error['error'] ?? 'Login failed')),
+        );
+      }
+    } catch (e) {
+      print('Login error: $e'); // Log error details
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('An error occurred. Please try again.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingLogin = false);
+      }
     }
   }
 
