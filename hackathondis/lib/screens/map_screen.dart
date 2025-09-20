@@ -1,7 +1,11 @@
+// lib/screens/map_screen.dart
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_map_marker_cluster/flutter_map_marker_cluster.dart';
+import 'package:hackathondis/screens/order_details_screen.dart';
+import 'package:hackathondis/services/payment_webview_screen.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -9,7 +13,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'dart:math' as math;
 
-// --- DATA MODEL for Parking Zones ---
+// ‼️ NEW: Import the new screens and services for payment integration.
+import 'package:hackathondis/services/payment_api_service.dart';
+
+
+// --- DATA MODEL for Parking Zones (No Changes) ---
 
 class ParkingZone {
   final String id;
@@ -17,7 +25,7 @@ class ParkingZone {
   final String address;
   final LatLng location;
   final int totalSpots;
-  int occupiedSpots; // Changed to non-final to allow updates
+  int occupiedSpots;
   final double pricePerHour;
   bool isHighlighted = false;
 
@@ -35,14 +43,14 @@ class ParkingZone {
   double get occupancyRate => occupiedSpots / totalSpots;
 }
 
-// --- RESERVATION DATA MODEL ---
+// --- RESERVATION DATA MODEL (No Changes) ---
 class ParkingReservation {
   final String id;
   final ParkingZone zone;
   final DateTime fromTime;
   final DateTime toTime;
   final double totalCost;
-  
+
   ParkingReservation({
     required this.id,
     required this.zone,
@@ -50,11 +58,11 @@ class ParkingReservation {
     required this.toTime,
     required this.totalCost,
   });
-  
+
   Duration get duration => toTime.difference(fromTime);
 }
 
-// --- MAIN WIDGET ---
+// --- MAIN WIDGET (No Changes) ---
 
 class MapScreen extends StatefulWidget {
   const MapScreen({Key? key}) : super(key: key);
@@ -65,42 +73,37 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   final MapController mapController = MapController();
-  List<ParkingZone> parkingZones = []; // Use a list directly
+  List<ParkingZone> parkingZones = [];
   LatLng? currentLocation;
   AnimationController? _mapAnimationController;
   StreamSubscription<Position>? _positionStreamSubscription;
-  bool _isMapLoading = true; // Add loading state
+  bool _isMapLoading = true;
 
-  // --- State for Parking Functionality ---
   ParkingZone? _activeParkingSession;
   DateTime? _parkingStartTime;
   Timer? _parkingTimer;
-  
-  // --- State for Reservation Functionality ---
+
+  // ignore: unused_field
   List<ParkingReservation> _reservations = [];
 
   @override
   void initState() {
     super.initState();
     _initializeMapAndData();
-    // Optionally start location tracking automatically
-    // _startLocationTracking(); // Uncomment if you want auto-tracking
   }
 
   Future<void> _initializeMapAndData() async {
     LatLng initialCenter =
         await _loadLastPosition() ?? const LatLng(36.775, 3.058); // Algiers Center
-    
-    // Try to get current location first
+
     await _fetchCurrentUserLocation(moveCamera: false);
     final dataCenter = currentLocation ?? initialCenter;
 
-    final zones = await _generateMockParkingZones(dataCenter, 3); // Display only 3 real parking zones
+    final zones = await _generateMockParkingZones(dataCenter, 3);
     if (mounted) {
       setState(() {
         parkingZones = zones;
-        _isMapLoading = false; // Set loading to false
-        // If we have current location, center on it, otherwise use last position
+        _isMapLoading = false;
         if (currentLocation != null) {
           mapController.move(currentLocation!, 14.0);
         } else {
@@ -111,7 +114,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     }
   }
 
-  // --- REAL WORLD PARKING ZONES ---
   Future<List<ParkingZone>> _generateMockParkingZones(
     LatLng center,
     int count,
@@ -120,7 +122,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         const Duration(milliseconds: 300)); // Simulate network latency
     final random = math.Random();
     
-    // Real parking locations in Algiers with actual coordinates
     final List<Map<String, dynamic>> realParkingLocations = [
       {
         'name': 'Ardis Mall Parking',
@@ -145,14 +146,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       },
     ];
 
-    // Take only the requested number of zones or all available if count is larger
     final selectedLocations = realParkingLocations.take(count).toList();
     
     return selectedLocations.asMap().entries.map((entry) {
       final index = entry.key;
       final location = entry.value;
       
-      // Random occupancy between 10% and 85% for realistic availability
       final totalSpots = location['totalSpots'] as int;
       final occupiedSpots = (totalSpots * (0.1 + random.nextDouble() * 0.75)).round();
 
@@ -168,7 +167,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     }).toList();
   }
 
-  // --- LOCATION & MAP LOGIC ---
   Future<LatLng?> _loadLastPosition() async {
     final prefs = await SharedPreferences.getInstance();
     final lat = prefs.getDouble('last_map_lat');
@@ -229,19 +227,18 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
       try {
         Position position = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.medium, // Changed from high to medium for better performance
-            timeLimit: const Duration(seconds: 30), // Increased timeout for better reliability
+            desiredAccuracy: LocationAccuracy.medium,
+            timeLimit: const Duration(seconds: 30),
         );
         if (mounted) {
           setState(() {
             currentLocation = LatLng(position.latitude, position.longitude);
           });
           if (moveCamera) {
-            _animatedMapMove(currentLocation!, 15.0); // Reduced zoom for smoother animation
+            _animatedMapMove(currentLocation!, 15.0);
           }
           _highlightNearbyZones();
           
-          // Show success message when location is found
           if (moveCamera) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -255,7 +252,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     } catch (e) {
       debugPrint("Error getting location: $e");
       if (mounted) {
-        // Use Algiers city center as fallback location
         setState(() {
           currentLocation = const LatLng(36.775, 3.058);
         });
@@ -284,7 +280,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     }
   }
 
-  // Method to start continuous location tracking
   void _startLocationTracking() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return;
@@ -297,9 +292,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     }
 
     const LocationSettings locationSettings = LocationSettings(
-      accuracy: LocationAccuracy.medium, // Changed to medium for better performance
-      distanceFilter: 15, // Increased to 15 meters to reduce updates
-      timeLimit: Duration(seconds: 30), // Add timeout for location updates
+      accuracy: LocationAccuracy.medium,
+      distanceFilter: 15,
+      timeLimit: Duration(seconds: 30),
     );
 
     _positionStreamSubscription = Geolocator.getPositionStream(
@@ -314,7 +309,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     });
   }
 
-  // Method to stop location tracking
   void _stopLocationTracking() {
     _positionStreamSubscription?.cancel();
     _positionStreamSubscription = null;
@@ -330,7 +324,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
           zone.location.latitude,
           zone.location.longitude,
         );
-        // Highlight zones within 1km with available spots
         zone.isHighlighted = (distance < 1000 && zone.availableSpots > 0);
       }
     });
@@ -339,7 +332,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   void _animatedMapMove(LatLng destLocation, double destZoom) {
     _mapAnimationController?.dispose();
     _mapAnimationController = AnimationController(
-        duration: const Duration(milliseconds: 800), vsync: this); // Reduced duration for smoother animation
+        duration: const Duration(milliseconds: 800), vsync: this);
     final latTween = Tween<double>(
         begin: mapController.camera.center.latitude, end: destLocation.latitude);
     final lngTween = Tween<double>(
@@ -347,7 +340,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     final zoomTween =
         Tween<double>(begin: mapController.camera.zoom, end: destZoom);
     final animation = CurvedAnimation(
-        parent: _mapAnimationController!, curve: Curves.easeInOut); // Changed curve for smoother animation
+        parent: _mapAnimationController!, curve: Curves.easeInOut);
 
     _mapAnimationController!.addListener(() {
       mapController.move(
@@ -375,14 +368,13 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         zone: zone,
         currentLocation: currentLocation,
         onBookSpot: (bookedZone) {
-          Navigator.pop(context); // Close the sheet first
+          Navigator.pop(context);
           _showReservationDialog(bookedZone);
         },
       ),
     );
   }
 
-  // --- RESERVATION FUNCTIONALITY ---
   void _showReservationDialog(ParkingZone zone) {
     showGeneralDialog(
       context: context,
@@ -421,18 +413,11 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       },
     );
   }
-  
-  int _timeToMinutes(TimeOfDay time) {
-    return time.hour * 60 + time.minute;
-  }
-  
-  Duration _calculateDuration(TimeOfDay from, TimeOfDay to) {
-    final fromMinutes = _timeToMinutes(from);
-    final toMinutes = _timeToMinutes(to);
-    return Duration(minutes: toMinutes - fromMinutes);
-  }
-  
-  void _makeReservation(ParkingZone zone, DateTime date, TimeOfDay fromTime, TimeOfDay toTime) {
+
+  // ‼️ NEW: This method is now called AFTER a payment is successfully initiated
+  // but BEFORE navigating to the WebView.
+  void addSuccessfulReservation(
+      ParkingZone zone, DateTime date, TimeOfDay fromTime, TimeOfDay toTime) {
     final fromDateTime = DateTime(
       date.year,
       date.month,
@@ -440,7 +425,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       fromTime.hour,
       fromTime.minute,
     );
-    
+
     final toDateTime = DateTime(
       date.year,
       date.month,
@@ -448,10 +433,10 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       toTime.hour,
       toTime.minute,
     );
-    
+
     final duration = toDateTime.difference(fromDateTime);
     final totalCost = (duration.inMinutes / 60) * zone.pricePerHour;
-    
+
     final reservation = ParkingReservation(
       id: 'res_${DateTime.now().millisecondsSinceEpoch}',
       zone: zone,
@@ -459,50 +444,27 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       toTime: toDateTime,
       totalCost: totalCost,
     );
-    
+
     setState(() {
       _reservations.add(reservation);
     });
-    
+
+    // Provide feedback to the user that the next step is payment.
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Container(
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text('Reservation Confirmed!', 
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                    Text('${zone.name}'),
-                    Text('${fromTime.format(context)} - ${toTime.format(context)}'),
-                    Text('Cost: ${totalCost.toStringAsFixed(2)} DA'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        backgroundColor: Colors.green.shade600,
+      const SnackBar(
+        content: Text('Reservation initiated. Redirecting to payment...'),
+        backgroundColor: Colors.blueAccent,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        duration: const Duration(seconds: 4),
       ),
     );
   }
 
-  // --- PARKING FUNCTIONALITY ---
+  // Parking Functionality (No Changes)
   void _startParking(ParkingZone zone) {
     setState(() {
       _activeParkingSession = zone;
       _parkingStartTime = DateTime.now();
-      zone.occupiedSpots++; // Simulate taking a spot
-      // Start a timer to update the UI every second
+      zone.occupiedSpots++;
       _parkingTimer =
           Timer.periodic(const Duration(seconds: 1), (timer) => setState(() {}));
     });
@@ -511,7 +473,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   void _endParking() {
     setState(() {
       if (_activeParkingSession != null) {
-        _activeParkingSession!.occupiedSpots--; // Free up the spot
+        _activeParkingSession!.occupiedSpots--;
       }
       _activeParkingSession = null;
       _parkingStartTime = null;
@@ -527,6 +489,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  // --- BUILD METHOD and Child Widgets (No Changes) ---
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -541,18 +504,16 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               initialZoom: 14.0,
               minZoom: 10.0,
               maxZoom: 18.0,
-              // Performance optimizations
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
               ),
               onPositionChanged: (camera, hasGesture) {
                 if (hasGesture) _saveLastPosition();
               },
-              // Reduce animation jank
               cameraConstraint: CameraConstraint.contain(
                 bounds: LatLngBounds(
-                  const LatLng(35.0, 1.0), // Southwest Algeria
-                  const LatLng(38.0, 5.0), // Northeast Algeria
+                  const LatLng(35.0, 1.0),
+                  const LatLng(38.0, 5.0),
                 ),
               ),
             ),
@@ -560,23 +521,20 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               TileLayer(
                 urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
                 userAgentPackageName: 'com.example.hackathondis',
-                // Performance optimizations
                 maxZoom: 18,
                 maxNativeZoom: 18,
                 tileSize: 256,
-                // Better caching
-                retinaMode: false, // Disable retina for better performance
-                // Error handling
+                retinaMode: false,
                 errorTileCallback: (tile, error, stackTrace) {
                   debugPrint('Tile error: $error');
                 },
               ),
               MarkerClusterLayerWidget(
                 options: MarkerClusterLayerOptions(
-                  maxClusterRadius: 80, // Reduced for better performance
-                  size: const Size(35, 35), // Slightly smaller
+                  maxClusterRadius: 80,
+                  size: const Size(35, 35),
                   centerMarkerOnClick: true,
-                  spiderfyCluster: false, // Disable for better performance
+                  spiderfyCluster: false,
                   markers: [
                     ...parkingZones.map(
                       (zone) => Marker(
@@ -620,7 +578,6 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
               ),
             ],
           ),
-          // Loading overlay
           if (_isMapLoading)
             Container(
               color: Colors.white.withOpacity(0.8),
@@ -644,14 +601,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                 ),
               ),
             ),
-          // Location tracking buttons
           Positioned(
             bottom: _activeParkingSession != null ? 120 : 20,
             right: 20,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Continuous tracking toggle button
                 FloatingActionButton(
                   mini: true,
                   onPressed: () {
@@ -675,23 +630,22 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
                       );
                     }
                   },
-                  backgroundColor: _positionStreamSubscription != null 
-                      ? Colors.green 
+                  backgroundColor: _positionStreamSubscription != null
+                      ? Colors.green
                       : Colors.grey.shade600,
-                  tooltip: _positionStreamSubscription != null 
-                      ? 'Stop location tracking' 
+                  tooltip: _positionStreamSubscription != null
+                      ? 'Stop location tracking'
                       : 'Start location tracking',
                   heroTag: 'tracking_button',
                   child: Icon(
-                    _positionStreamSubscription != null 
-                        ? Icons.location_on 
+                    _positionStreamSubscription != null
+                        ? Icons.location_on
                         : Icons.location_off,
                     color: Colors.white,
                     size: 20,
                   ),
                 ),
                 const SizedBox(height: 8),
-                // Get current location button
                 FloatingActionButton(
                   onPressed: () => _fetchCurrentUserLocation(),
                   backgroundColor: Colors.blueAccent,
@@ -745,15 +699,18 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
         children: [
           Container(width: 12, height: 12, color: color),
           const SizedBox(width: 8),
-          Text(label, style: const TextStyle(color: Colors.black87, fontSize: 12)),
+          Text(label,
+              style: const TextStyle(color: Colors.black87, fontSize: 12)),
         ],
       ),
     );
   }
 }
 
-// --- CUSTOM WIDGETS FOR MAP & UI ---
+// --- ALL OTHER CUSTOM WIDGETS (AppBar, Markers, Sheets, Dialogs) ---
+// Note: Only the ReservationDialog's `onPressed` logic is modified.
 
+// --- CUSTOM WIDGETS FOR MAP & UI (No Changes) ---
 class _ParkingZoneMarker extends StatefulWidget {
   const _ParkingZoneMarker({required this.zone});
   final ParkingZone zone;
@@ -782,7 +739,6 @@ class _ParkingZoneMarkerState extends State<_ParkingZoneMarker>
       curve: Curves.easeInOut,
     ));
     
-    // Start subtle pulse animation if zone is highlighted
     if (widget.zone.isHighlighted) {
       _pulseController.repeat(reverse: true);
     }
@@ -841,7 +797,6 @@ class _ParkingZoneMarkerState extends State<_ParkingZoneMarker>
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Top icon section
                 Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
@@ -859,7 +814,6 @@ class _ParkingZoneMarkerState extends State<_ParkingZoneMarker>
                   ),
                 ),
                 const SizedBox(height: 2),
-                // Available spots
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -879,7 +833,6 @@ class _ParkingZoneMarkerState extends State<_ParkingZoneMarker>
                     ),
                   ],
                 ),
-                // Price section
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                   decoration: BoxDecoration(
@@ -917,7 +870,6 @@ class _ParkingZoneMarkerState extends State<_ParkingZoneMarker>
 
 class _ActiveParkingMarker extends StatefulWidget {
   const _ActiveParkingMarker();
-
   @override
   State<_ActiveParkingMarker> createState() => _ActiveParkingMarkerState();
 }
@@ -1005,7 +957,6 @@ class _ActiveParkingMarkerState extends State<_ActiveParkingMarker>
 
 class _UserLocationMarker extends StatefulWidget {
   const _UserLocationMarker();
-
   @override
   __UserLocationMarkerState createState() => __UserLocationMarkerState();
 }
@@ -1034,7 +985,6 @@ class __UserLocationMarkerState extends State<_UserLocationMarker>
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Outer pulsing ring
           FadeTransition(
             opacity: Tween<double>(begin: 0.6, end: 0.0)
                 .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
@@ -1060,7 +1010,6 @@ class __UserLocationMarkerState extends State<_UserLocationMarker>
               ),
             ),
           ),
-          // Middle accuracy circle
           Container(
             width: 36,
             height: 36,
@@ -1085,7 +1034,6 @@ class __UserLocationMarkerState extends State<_UserLocationMarker>
               ],
             ),
           ),
-          // Center dot with icon
           Container(
             width: 20,
             height: 20,
@@ -1131,8 +1079,6 @@ Color _getZoneColor(double occupancyRate) {
   return Colors.green.shade600;
 }
 
-// --- UI COMPONENTS (AppBar, Bottom Sheets) ---
-
 class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
   const ModernAppBar({Key? key, required this.title}) : super(key: key);
@@ -1142,14 +1088,13 @@ class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
         elevation: 1,
         title: Row(
           children: [
-            Container(
+            SizedBox(
               width: 32,
               height: 32,
               child: Image.asset(
                 'assets/logo.png',
                 fit: BoxFit.contain,
                 errorBuilder: (context, error, stackTrace) {
-                  // Fallback to parking icon if logo fails to load
                   return const FaIcon(FontAwesomeIcons.squareParking, color: Colors.blueAccent, size: 24);
                 },
               ),
@@ -1278,7 +1223,6 @@ class _ParkingDetailsSheetState extends State<ParkingDetailsSheet>
               controller: scrollController,
               padding: const EdgeInsets.all(24.0),
               children: [
-                // Drag handle
                 Center(
                   child: Container(
                     width: 50,
@@ -1291,7 +1235,6 @@ class _ParkingDetailsSheetState extends State<ParkingDetailsSheet>
                   ),
                 ),
                 
-                // Header section with animated elements
                 SlideTransition(
                   position: Tween<Offset>(
                     begin: const Offset(0, 0.5),
@@ -1305,7 +1248,6 @@ class _ParkingDetailsSheetState extends State<ParkingDetailsSheet>
                 
                 const SizedBox(height: 24),
                 
-                // Stats cards
                 SlideTransition(
                   position: Tween<Offset>(
                     begin: const Offset(0, 0.3),
@@ -1319,7 +1261,6 @@ class _ParkingDetailsSheetState extends State<ParkingDetailsSheet>
                 
                 const SizedBox(height: 24),
                 
-                // Action buttons
                 SlideTransition(
                   position: Tween<Offset>(
                     begin: const Offset(0, 0.2),
@@ -1342,7 +1283,6 @@ class _ParkingDetailsSheetState extends State<ParkingDetailsSheet>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Title with location icon
         Row(
           children: [
             Container(
@@ -1442,7 +1382,6 @@ class _ParkingDetailsSheetState extends State<ParkingDetailsSheet>
   Widget _buildStatsCards() {
     return Row(
       children: [
-        // Available spots card
         Expanded(
           child: _buildStatCard(
             icon: Icons.local_parking_rounded,
@@ -1454,7 +1393,6 @@ class _ParkingDetailsSheetState extends State<ParkingDetailsSheet>
           ),
         ),
         const SizedBox(width: 12),
-        // Price card
         Expanded(
           child: _buildStatCard(
             icon: Icons.payments_rounded,
@@ -1549,7 +1487,6 @@ class _ParkingDetailsSheetState extends State<ParkingDetailsSheet>
   Widget _buildActionButtons() {
     return Column(
       children: [
-        // Book spot button
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
@@ -1594,7 +1531,6 @@ class _ParkingDetailsSheetState extends State<ParkingDetailsSheet>
         
         const SizedBox(height: 12),
         
-        // Directions button
         SizedBox(
           width: double.infinity,
           child: OutlinedButton(
@@ -1761,26 +1697,26 @@ class _ReservationDialogState extends State<ReservationDialog>
   DateTime selectedDate = DateTime.now();
   TimeOfDay fromTime = TimeOfDay.now();
   late TimeOfDay toTime;
+  
+  // ‼️ NEW: Add instance of the payment service
+  final PaymentApiService _apiService = PaymentApiService();
 
   @override
   void initState() {
     super.initState();
     
-    // Initialize with valid future times in Algiers timezone
     final currentAlgiersTime = _getCurrentAlgiersTime();
     final nextHour = TimeOfDay(
       hour: (currentAlgiersTime.hour + 1) % 24,
       minute: currentAlgiersTime.minute,
     );
     
-    // Set fromTime to next hour or current time + 15 minutes if it's in the future
     if (_isTimeInFuture(TimeOfDay(hour: currentAlgiersTime.hour, minute: currentAlgiersTime.minute + 15))) {
-      fromTime = TimeOfDay(hour: currentAlgiersTime.hour, minute: currentAlgiersTime.minute + 15);
+      fromTime = TimeOfDay(hour: currentAlgiersTime.hour, minute: (currentAlgiersTime.minute + 15) % 60);
     } else {
       fromTime = nextHour;
     }
     
-    // Set toTime to be 59 minutes after fromTime
     toTime = TimeOfDay(
       hour: fromTime.hour + (fromTime.minute >= 1 ? 1 : 0),
       minute: (fromTime.minute + 59) % 60,
@@ -1833,13 +1769,11 @@ class _ReservationDialogState extends State<ReservationDialog>
     return Duration(minutes: toMinutes - fromMinutes);
   }
 
-  // Get current time in Algiers timezone (UTC+1)
   TimeOfDay _getCurrentAlgiersTime() {
     final now = DateTime.now().toUtc().add(const Duration(hours: 1)); // Algiers is UTC+1
     return TimeOfDay(hour: now.hour, minute: now.minute);
   }
 
-  // Check if a time is in the future (after current Algiers time)
   bool _isTimeInFuture(TimeOfDay time) {
     final currentTime = _getCurrentAlgiersTime();
     final currentMinutes = _timeToMinutes(currentTime);
@@ -1847,24 +1781,101 @@ class _ReservationDialogState extends State<ReservationDialog>
     return selectedMinutes > currentMinutes;
   }
 
-  // Validate time selection
   bool _isValidTimeSelection(TimeOfDay fromTime, TimeOfDay toTime) {
-    // Check if fromTime is in the future
     if (!_isTimeInFuture(fromTime)) {
       return false;
     }
-    // Check if toTime is after fromTime
     return _timeToMinutes(toTime) > _timeToMinutes(fromTime);
   }
 
-  void _makeReservation() {
-    final mapScreenState = context.findAncestorStateOfType<_MapScreenState>();
-    if (mapScreenState != null) {
-      mapScreenState._makeReservation(widget.zone, selectedDate, fromTime, toTime);
-    }
-    Navigator.pop(context);
-  }
+  // ‼️ NEW: This method handles the entire payment initiation flow.
+  // Inside the _ReservationDialogState class in lib/screens/map_screen.dart
 
+// ‼️ REPLACE your existing method with this one
+Future<void> _initiatePaymentAndReserve() async {
+  final duration = _calculateDuration(fromTime, toTime);
+  final cost = (duration.inMinutes / 60) * widget.zone.pricePerHour;
+
+  // Show a loading indicator
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (context) => const Center(child: CircularProgressIndicator()),
+  );
+
+  try {
+    final response = await _apiService.initiatePayment(cost);
+
+    // Close the loading indicator
+    if (mounted) Navigator.pop(context);
+
+    // ‼️ NEW LOGIC: Check if this is a development mock success
+    final isMockSuccess = response['meta']?['mock_success'] == true;
+
+    if (isMockSuccess) {
+      // --- DEVELOPMENT MODE FLOW ---
+      final String orderId = response['data']['id'];
+
+      // Add the reservation to our local list
+      final mapScreenState = context.findAncestorStateOfType<_MapScreenState>();
+      if (mapScreenState != null) {
+        mapScreenState.addSuccessfulReservation(widget.zone, selectedDate, fromTime, toTime);
+      }
+
+      // Close the reservation dialog
+      if (mounted) Navigator.pop(context);
+      
+      // Navigate DIRECTLY to Order Details, skipping the WebView
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('DEV MODE: Bypassing payment form.'),
+            backgroundColor: Colors.purple,
+          ),
+        );
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => OrderDetailsScreen(orderId: orderId),
+          ),
+        );
+      }
+    } else {
+      // --- PRODUCTION (LIVE) FLOW ---
+      final paymentData = response['data'];
+      final String orderId = paymentData['id'];
+      final String formUrl = paymentData['attributes']['form_url'];
+
+      final mapScreenState = context.findAncestorStateOfType<_MapScreenState>();
+      if (mapScreenState != null) {
+        mapScreenState.addSuccessfulReservation(widget.zone, selectedDate, fromTime, toTime);
+      }
+
+      if (mounted) Navigator.pop(context);
+
+      // Navigate to the WebView for real payment
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PaymentWebViewScreen(
+              paymentUrl: formUrl,
+              orderId: orderId,
+            ),
+          ),
+        );
+      }
+    }
+  } catch (e) {
+    if (mounted) Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Payment initiation failed: $e'),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+}
   @override
   Widget build(BuildContext context) {
     final duration = _calculateDuration(fromTime, toTime);
@@ -1896,7 +1907,6 @@ class _ReservationDialogState extends State<ReservationDialog>
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Header
                     Row(
                       children: [
                         Container(
@@ -1937,10 +1947,7 @@ class _ReservationDialogState extends State<ReservationDialog>
                         ),
                       ],
                     ),
-                    
                     const SizedBox(height: 32),
-                    
-                    // Date Display with Current Time
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -1986,10 +1993,7 @@ class _ReservationDialogState extends State<ReservationDialog>
                         ],
                       ),
                     ),
-                    
                     const SizedBox(height: 24),
-                    
-                    // Time Selection
                     const Text(
                       'Select Time',
                       style: TextStyle(
@@ -1999,7 +2003,6 @@ class _ReservationDialogState extends State<ReservationDialog>
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
                     Row(
                       children: [
                         Expanded(
@@ -2030,7 +2033,6 @@ class _ReservationDialogState extends State<ReservationDialog>
                                 },
                               );
                               if (picked != null) {
-                                // Validate that the picked time is in the future
                                 if (!_isTimeInFuture(picked)) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
@@ -2053,7 +2055,6 @@ class _ReservationDialogState extends State<ReservationDialog>
                                 
                                 setState(() {
                                   fromTime = picked;
-                                  // Auto-adjust toTime to be at least 30 minutes after fromTime
                                   final minToTime = TimeOfDay(
                                     hour: fromTime.hour + (fromTime.minute >= 30 ? 1 : 0),
                                     minute: fromTime.minute >= 30 ? fromTime.minute - 30 : fromTime.minute + 30,
@@ -2104,8 +2105,7 @@ class _ReservationDialogState extends State<ReservationDialog>
                                 },
                               );
                               if (picked != null) {
-                                // Validate that toTime is after fromTime with minimum duration
-                                final minToTimeMinutes = _timeToMinutes(fromTime) + 30; // Minimum 30 minutes
+                                final minToTimeMinutes = _timeToMinutes(fromTime) + 30;
                                 final pickedMinutes = _timeToMinutes(picked);
                                 
                                 if (pickedMinutes <= _timeToMinutes(fromTime)) {
@@ -2153,10 +2153,7 @@ class _ReservationDialogState extends State<ReservationDialog>
                         ),
                       ],
                     ),
-                    
                     const SizedBox(height: 32),
-                    
-                    // Summary Card
                     AnimatedBuilder(
                       animation: _pulseAnimation,
                       builder: (context, child) {
@@ -2228,10 +2225,7 @@ class _ReservationDialogState extends State<ReservationDialog>
                         );
                       },
                     ),
-                    
                     const SizedBox(height: 32),
-                    
-                    // Action Buttons
                     Row(
                       children: [
                         Expanded(
@@ -2258,7 +2252,10 @@ class _ReservationDialogState extends State<ReservationDialog>
                         Expanded(
                           flex: 2,
                           child: ElevatedButton(
-                            onPressed: _isValidTimeSelection(fromTime, toTime) ? _makeReservation : null,
+                            // ‼️ CHANGE: The button now calls the payment initiation method.
+                            onPressed: _isValidTimeSelection(fromTime, toTime)
+                                ? _initiatePaymentAndReserve
+                                : null,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.blue.shade600,
                               foregroundColor: Colors.white,
@@ -2274,7 +2271,7 @@ class _ReservationDialogState extends State<ReservationDialog>
                                 const Icon(Icons.check_circle_outline),
                                 const SizedBox(width: 8),
                                 const Text(
-                                  'Confirm Reservation',
+                                  'Confirm & Pay', // Update button text
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
