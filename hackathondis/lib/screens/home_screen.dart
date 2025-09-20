@@ -272,169 +272,181 @@ class _FundraisingHomePageState extends State<HomeScreen> {
           SizedBox(width: 15),
         ],
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 12), // Reduced spacing
-            Padding(
-              padding:
-                  EdgeInsets.symmetric(horizontal: 12.0), // Reduced padding
-              child: Container(
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                    color: Colors.grey[200],
-                    borderRadius: BorderRadius.circular(12)),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Colors.blue.shade300,
+              Colors.blue.shade900,
+            ],
+          ),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(height: 12), // Reduced spacing
+              Padding(
+                padding:
+                    EdgeInsets.symmetric(horizontal: 12.0), // Reduced padding
+                child: Container(
+                  padding: EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '\$0',
+                            style: TextStyle(
+                                fontSize: 22, fontWeight: FontWeight.bold),
+                          ),
+                          Text('My wallet balance')
+                        ],
+                      ),
+                      ElevatedButton(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => TopUpScreen(),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.green,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8))),
+                          child: Text('Top up',
+                              style: TextStyle(color: Colors.white)))
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 16), // Reduced spacing
+              _buildImageSlider(),
+              SizedBox(height: 16), // Reduced spacing
+              StreamBuilder<QuerySnapshot>(
+                  stream: getPaginatedFundraisers(),
+                  builder: (context, snapshot) {
+                    return _buildFundraisingSection('Urgent Fundraising', [
+                      'All',
+                      'Medical',
+                      'Disaster',
+                      'Education',
+                      'Environment',
+                      'Social',
+                      'Sick child',
+                      'Infrastructure',
+                      'Art',
+                      'Orphanage',
+                      'Difable',
+                      'Humanity',
+                      'Others'
+                    ]);
+                  }),
+              SizedBox(height: 24),
+              StreamBuilder<QuerySnapshot>(
+                  stream: getMoreFundraisers(),
+                  builder: (context, snapshot) {
+                    return _buildFundraisingSection('More to Help', [
+                      'All',
+                      'Medical',
+                      'Education',
+                      'Environment',
+                      'Social',
+                      'Others'
+                    ]);
+                  }),
+              SizedBox(height: 24),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '\$0',
-                          style: TextStyle(
-                              fontSize: 22, fontWeight: FontWeight.bold),
-                        ),
-                        Text('My wallet balance')
-                      ],
+                    Text(
+                      "Watch the Impact of Your Donation",
+                      style: TextStyle(
+                        fontSize: 17.5,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: -0.5,
+                      ),
                     ),
-                    ElevatedButton(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => TopUpScreen(),
-                            ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8))),
-                        child: Text('Top up',
-                            style: TextStyle(color: Colors.white)))
+                    TextButton(
+                      onPressed: () {
+                        // Navigate to search page with videos tab
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => SearchPage(initialTabIndex: 1),
+                          ),
+                        );
+                      },
+                      child: Text(
+                        'See all',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-            ),
-            SizedBox(height: 16), // Reduced spacing
-            _buildImageSlider(),
-            SizedBox(height: 16), // Reduced spacing
-            StreamBuilder<QuerySnapshot>(
-                stream: getPaginatedFundraisers(),
+              SizedBox(height: 16),
+              StreamBuilder<QuerySnapshot>(
+                stream: getVideoReels(),
                 builder: (context, snapshot) {
-                  return _buildFundraisingSection('Urgent Fundraising', [
-                    'All',
-                    'Medical',
-                    'Disaster',
-                    'Education',
-                    'Environment',
-                    'Social',
-                    'Sick child',
-                    'Infrastructure',
-                    'Art',
-                    'Orphanage',
-                    'Difable',
-                    'Humanity',
-                    'Others'
-                  ]);
-                }),
-            SizedBox(height: 24),
-            StreamBuilder<QuerySnapshot>(
-                stream: getMoreFundraisers(),
-                builder: (context, snapshot) {
-                  return _buildFundraisingSection('More to Help', [
-                    'All',
-                    'Medical',
-                    'Education',
-                    'Environment',
-                    'Social',
-                    'Others'
-                  ]);
-                }),
-            SizedBox(height: 24),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    "Watch the Impact of Your Donation",
-                    style: TextStyle(
-                      fontSize: 17.5,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      // Navigate to search page with videos tab
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => SearchPage(initialTabIndex: 1),
-                        ),
-                      );
-                    },
-                    child: Text(
-                      'See all',
-                      style: TextStyle(
-                        color: Colors.green,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 16),
-            StreamBuilder<QuerySnapshot>(
-              stream: getVideoReels(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Something went wrong'));
-                }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Something went wrong'));
+                  }
 
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                }
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  }
 
-                final videos = snapshot.data?.docs ?? [];
+                  final videos = snapshot.data?.docs ?? [];
 
-                if (videos.isEmpty) {
-                  return Center(child: Text('No videos available'));
-                }
+                  if (videos.isEmpty) {
+                    return Center(child: Text('No videos available'));
+                  }
 
-                return SizedBox(
-                  height: 320,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    padding: EdgeInsets.symmetric(horizontal: 16),
-                    itemCount: videos.length,
-                    itemBuilder: (context, index) {
-                      final videoData =
-                          videos[index].data() as Map<String, dynamic>;
-                      return VideoCard(
-                        image: videoData['mainImageUrl'] ??
-                            'assets/images/placeholder.jpg',
-                        title: videoData['title'] ?? 'Untitled',
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ReelsScreen(
-                              initialIndex: index,
-                              videos: videos,
+                  return SizedBox(
+                    height: 320,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: videos.length,
+                      itemBuilder: (context, index) {
+                        final videoData =
+                            videos[index].data() as Map<String, dynamic>;
+                        return VideoCard(
+                          image: videoData['mainImageUrl'] ??
+                              'assets/images/placeholder.jpg',
+                          title: videoData['title'] ?? 'Untitled',
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => ReelsScreen(
+                                initialIndex: index,
+                                videos: videos,
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    },
-                  ),
-                );
-              },
-            ),
-          ],
+                        );
+                      },
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );
