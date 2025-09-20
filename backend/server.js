@@ -5,9 +5,17 @@ const helmet = require('helmet');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
+const connectDB = require('./config/db');
 
 // Import routes
 const authRoutes = require('./routes/auth');
+const adminRoutes = require('./routes/admin');
+const userRoutes = require('./routes/user');
+const zoneRoutes = require('./routes/zone');
+const spotRoutes = require('./routes/spot');
+const bookingRoutes = require('./routes/booking');
+const roleRoutes = require('./routes/role');
+const paymentRoutes = require('./routes/payment');
 
 const app = express();
 
@@ -86,6 +94,42 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/zones', zoneRoutes);
+app.use('/api/spots', spotRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/admins', adminRoutes); // Alternative endpoint
+app.use('/api/payments', paymentRoutes);
+
+// Route to get available collections
+app.get('/api/collections', async (req, res) => {
+  try {
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    const collectionNames = collections.map(col => col.name).filter(name => !name.startsWith('system'));
+    res.json(collectionNames);
+  } catch (error) {
+    console.error('Error fetching collections:', error);
+    res.status(500).json({ error: 'Failed to fetch collections' });
+  }
+});
+
+// Generic route to fetch data from any collection
+app.get('/api/:collectionName', async (req, res) => {
+  try {
+    const { collectionName } = req.params;
+    
+    // Get the collection directly from MongoDB
+    const collection = mongoose.connection.db.collection(collectionName);
+    const documents = await collection.find({}).toArray();
+    
+    res.json(documents);
+  } catch (error) {
+    console.error(`Error fetching data from ${req.params.collectionName}:`, error);
+    res.status(500).json({ error: `Failed to fetch data from ${req.params.collectionName}` });
+  }
+});
 
 // Enhanced error logging
 app.use((err, req, res, next) => {

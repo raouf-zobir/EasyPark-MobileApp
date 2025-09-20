@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 class PaymentApiService {
   // ‼️ IMPORTANT: For physical device testing, replace 'localhost' with your computer's IP address.
   // Example: final String _baseUrl = "http://192.168.1.5:5000/api/payments";
-  static const String _baseUrl = "http://192.168.1.8:5000/api/payments";
+  static const String _baseUrl = "http://192.168.96.235:3000/api/payments";
 
   // 🔹 Initiates a payment and returns the response data
   Future<Map<String, dynamic>> initiatePayment(double amount) async {
