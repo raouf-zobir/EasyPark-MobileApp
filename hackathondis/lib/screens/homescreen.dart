@@ -52,28 +52,37 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final List<ParkingSpot> popularSpots = [
     ParkingSpot(
-      name: "Downtown Garage",
-      distance: "5 min walk",
-      walkTime: "5 min walk to mall",
-      rating: 4.5,
-      availableSpots: 45,
-      imagePath: "assets/images/parking.png",
-    ),
-    ParkingSpot(
-      name: "City Center Parking",
+      name: "sofia Parking",
       distance: "3 min walk",
       walkTime: "5 min walk to the...",
       rating: 4.2,
       availableSpots: 23,
-      imagePath: "assets/images/parking.png",
+      imagePath: "assets/images/sofia.jpg",
     ),
     ParkingSpot(
-      name: "Park & Ride Lot",
+      name: "Bab ezzouar Parking",
       distance: "2 min walk",
       walkTime: "Free shuttle to...",
       rating: 4.8,
       availableSpots: 67,
-      imagePath: "assets/images/parking.png",
+      imagePath: "assets/images/bbz.jpg",
+      hasShuttle: true,
+    ),
+    ParkingSpot(
+      name: "GardenCity Parking",
+      distance: "4 min walk",
+      walkTime: "4 min walk to station",
+      rating: 4.3,
+      availableSpots: 35,
+      imagePath: "assets/images/gardencity.jpg",
+    ),
+    ParkingSpot(
+      name: "Ardis Parking",
+      distance: "6 min walk",
+      walkTime: "Close to shopping center",
+      rating: 4.6,
+      availableSpots: 52,
+      imagePath: "assets/images/ardis.jpg",
       hasShuttle: true,
     ),
   ];
@@ -277,117 +286,138 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: 30),
 
                 // Popular Parking Spots section
-                const Text(
-                  'Popular Parking Spots',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Popular Parking Spots',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        // Navigate to all spots (implementation pending)
+                      },
+                      child: Text(
+                        'See all',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 15),
 
-                // Popular Spots Grid
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 3,
-                    childAspectRatio: 0.75,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                  ),
-                  itemCount: popularSpots.length,
-                  itemBuilder: (context, index) {
-                    final spot = popularSpots[index];
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 4,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(12),
-                                ),
-                                image: DecorationImage(
-                                  image: AssetImage(spot.imagePath),
-                                  fit: BoxFit.cover,
+                // Popular Spots Horizontal List
+                SizedBox(
+                  height: 220,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: popularSpots.length,
+                    itemBuilder: (context, index) {
+                      final spot = popularSpots[index];
+                      return Container(
+                        width: 180,
+                        margin: EdgeInsets.only(right: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 5,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(16),
+                                  ),
+                                  image: DecorationImage(
+                                    image: AssetImage(spot.imagePath),
+                                    fit: BoxFit.cover,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          Expanded(
-                            flex: 3,
-                            child: Padding(
-                              padding: const EdgeInsets.all(6),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  Text(
-                                    spot.name,
-                                    style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    spot.walkTime,
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      color: Colors.grey[600],
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          ...List.generate(4, (i) => Icon(
-                                            Icons.star,
-                                            color: Colors.amber,
-                                            size: 8,
-                                          )),
-                                          const Icon(
-                                            Icons.star_border,
-                                            color: Colors.amber,
-                                            size: 8,
+                            Expanded(
+                              flex: 4,
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          spot.name,
+                                          style: const TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w600,
                                           ),
-                                        ],
-                                      ),
-                                      if (spot.hasShuttle)
-                                        const Icon(
-                                          Icons.directions_bus,
-                                          color: Color(0xFF4DB6AC),
-                                          size: 10,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                    ],
-                                  ),
-                                ],
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          spot.walkTime,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            ...List.generate(4, (i) => Icon(
+                                              Icons.star,
+                                              color: Colors.amber,
+                                              size: 12,
+                                            )),
+                                            const Icon(
+                                              Icons.star_border,
+                                              color: Colors.amber,
+                                              size: 12,
+                                            ),
+                                          ],
+                                        ),
+                                        if (spot.hasShuttle)
+                                          const Icon(
+                                            Icons.directions_bus,
+                                            color: Color(0xFF4DB6AC),
+                                            size: 14,
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
                 const SizedBox(height: 30),
 
