@@ -85,11 +85,37 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   // ignore: unused_field
   List<ParkingReservation> _reservations = [];
+  
+  // NEW: for Search functionality
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  List<ParkingZone> _searchResults = [];
+
+  // NEW: for "Find Nearby" animation
+  bool _isSearchingNearby = false;
+  AnimationController? _radarAnimationController;
+
 
   @override
   void initState() {
     super.initState();
     _initializeMapAndData();
+    
+    // NEW: Listener for search field to update search results dynamically.
+    _searchController.addListener(() {
+      _onSearchChanged(_searchController.text);
+    });
+    _searchFocusNode.addListener(() {
+      setState(() {
+        // Rebuild to show/hide the results list when focus changes.
+      });
+    });
+
+    // NEW: Controller for the radar search animation.
+    _radarAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
   }
 
   Future<void> _initializeMapAndData() async {
@@ -413,6 +439,57 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       },
     );
   }
+  
+  // ‼️ NEW: This is the primary action for the "Find Parkings Near Me" button.
+  Future<void> _findNearbyParkings() async {
+    // Unfocus the search bar if it's active.
+    _clearSearch();
+    
+    // Start the radar animation.
+    setState(() {
+      _isSearchingNearby = true;
+    });
+
+    // Fetch the user's location and move the camera.
+    await _fetchCurrentUserLocation(moveCamera: true);
+
+    // Keep the animation running for a few seconds for a better user experience.
+    await Future.delayed(const Duration(seconds: 2));
+
+    // Stop the animation after the "search" is complete.
+    if (mounted) {
+      setState(() {
+        _isSearchingNearby = false;
+      });
+    }
+  }
+
+  // NEW: Filters the parkingZones list based on the search query.
+  void _onSearchChanged(String query) {
+    if (query.isEmpty) {
+      setState(() {
+        _searchResults = [];
+      });
+      return;
+    }
+    setState(() {
+      _searchResults = parkingZones
+          .where((zone) =>
+              zone.name.toLowerCase().contains(query.toLowerCase()) ||
+              zone.address.toLowerCase().contains(query.toLowerCase()))
+          .toList();
+    });
+  }
+  
+  // NEW: Helper method to clear search text and hide the keyboard.
+  void _clearSearch() {
+    _searchController.clear();
+    _searchFocusNode.unfocus();
+    setState(() {
+      _searchResults = [];
+    });
+  }
+
 
   // ‼️ NEW: This method is now called AFTER a payment is successfully initiated
   // but BEFORE navigating to the WebView.
@@ -486,6 +563,12 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     _mapAnimationController?.dispose();
     _parkingTimer?.cancel();
     _positionStreamSubscription?.cancel();
+    
+    // NEW: Dispose new controllers to prevent memory leaks.
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    _radarAnimationController?.dispose();
+
     super.dispose();
   }
 
@@ -495,183 +578,316 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: const ModernAppBar(title: 'ParkDZ Finder'),
-      body: Stack(
-        children: [
-          FlutterMap(
-            mapController: mapController,
-            options: MapOptions(
-              initialCenter: currentLocation ?? const LatLng(36.775, 3.058),
-              initialZoom: 14.0,
-              minZoom: 10.0,
-              maxZoom: 18.0,
-              interactionOptions: const InteractionOptions(
-                flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
-              ),
-              onPositionChanged: (camera, hasGesture) {
-                if (hasGesture) _saveLastPosition();
-              },
-              cameraConstraint: CameraConstraint.contain(
-                bounds: LatLngBounds(
-                  const LatLng(35.0, 1.0),
-                  const LatLng(38.0, 5.0),
+      // NEW: Wrap body in a GestureDetector to unfocus search bar when tapping the map.
+      body: GestureDetector(
+        onTap: () {
+          if (_searchFocusNode.hasFocus) {
+            _searchFocusNode.unfocus();
+          }
+        },
+        child: Stack(
+          children: [
+            FlutterMap(
+              mapController: mapController,
+              options: MapOptions(
+                initialCenter: currentLocation ?? const LatLng(36.775, 3.058),
+                initialZoom: 14.0,
+                minZoom: 10.0,
+                maxZoom: 18.0,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                ),
+                onPositionChanged: (camera, hasGesture) {
+                  if (hasGesture) _saveLastPosition();
+                },
+                cameraConstraint: CameraConstraint.contain(
+                  bounds: LatLngBounds(
+                    const LatLng(35.0, 1.0),
+                    const LatLng(38.0, 5.0),
+                  ),
                 ),
               ),
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                userAgentPackageName: 'com.example.hackathondis',
-                maxZoom: 18,
-                maxNativeZoom: 18,
-                tileSize: 256,
-                retinaMode: false,
-                errorTileCallback: (tile, error, stackTrace) {
-                  debugPrint('Tile error: $error');
-                },
-              ),
-              MarkerClusterLayerWidget(
-                options: MarkerClusterLayerOptions(
-                  maxClusterRadius: 80,
-                  size: const Size(35, 35),
-                  centerMarkerOnClick: true,
-                  spiderfyCluster: false,
-                  markers: [
-                    ...parkingZones.map(
-                      (zone) => Marker(
-                        width: 85,
-                        height: 95,
-                        point: zone.location,
-                        child: GestureDetector(
-                          onTap: () => _onZoneTapped(zone),
-                          child: _activeParkingSession?.id == zone.id
-                              ? const _ActiveParkingMarker()
-                              : _ParkingZoneMarker(zone: zone),
-                        ),
-                      ),
-                    ),
-                    if (currentLocation != null)
-                      Marker(
-                        point: currentLocation!,
-                        width: 80,
-                        height: 80,
-                        child: const _UserLocationMarker(),
-                      ),
-                  ],
-                  builder: (context, markers) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        color: Colors.blueAccent,
-                      ),
-                      child: Center(
-                        child: Text(
-                          markers.length.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
+              children: [
+                TileLayer(
+                  urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                  userAgentPackageName: 'com.example.hackathondis',
+                  maxZoom: 18,
+                  maxNativeZoom: 18,
+                  tileSize: 256,
+                  retinaMode: false,
+                  errorTileCallback: (tile, error, stackTrace) {
+                    debugPrint('Tile error: $error');
+                  },
+                ),
+                MarkerClusterLayerWidget(
+                  options: MarkerClusterLayerOptions(
+                    maxClusterRadius: 80,
+                    size: const Size(35, 35),
+                    centerMarkerOnClick: true,
+                    spiderfyCluster: false,
+                    markers: [
+                      ...parkingZones.map(
+                        (zone) => Marker(
+                          width: 85,
+                          height: 95,
+                          point: zone.location,
+                          child: GestureDetector(
+                            onTap: () => _onZoneTapped(zone),
+                            child: _activeParkingSession?.id == zone.id
+                                ? const _ActiveParkingMarker()
+                                : _ParkingZoneMarker(zone: zone),
                           ),
                         ),
                       ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-          if (_isMapLoading)
-            Container(
-              color: Colors.white.withOpacity(0.8),
-              child: const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.blueAccent),
-                    ),
-                    SizedBox(height: 16),
-                    Text(
-                      'Loading map...',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          Positioned(
-            bottom: _activeParkingSession != null ? 120 : 20,
-            right: 20,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                FloatingActionButton(
-                  mini: true,
-                  onPressed: () {
-                    if (_positionStreamSubscription != null) {
-                      _stopLocationTracking();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Location tracking stopped'),
-                          backgroundColor: Colors.orange,
-                          duration: Duration(seconds: 2),
+                      if (currentLocation != null)
+                        Marker(
+                          point: currentLocation!,
+                          width: 80,
+                          height: 80,
+                          child: const _UserLocationMarker(),
+                        ),
+                    ],
+                    builder: (context, markers) {
+                      return Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(20),
+                          color: Colors.blueAccent,
+                        ),
+                        child: Center(
+                          child: Text(
+                            markers.length.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       );
-                    } else {
-                      _startLocationTracking();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Continuous location tracking started'),
-                          backgroundColor: Colors.green,
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
-                    }
-                  },
-                  backgroundColor: _positionStreamSubscription != null
-                      ? Colors.green
-                      : Colors.grey.shade600,
-                  tooltip: _positionStreamSubscription != null
-                      ? 'Stop location tracking'
-                      : 'Start location tracking',
-                  heroTag: 'tracking_button',
-                  child: Icon(
-                    _positionStreamSubscription != null
-                        ? Icons.location_on
-                        : Icons.location_off,
-                    color: Colors.white,
-                    size: 20,
+                    },
                   ),
-                ),
-                const SizedBox(height: 8),
-                FloatingActionButton(
-                  onPressed: () => _fetchCurrentUserLocation(),
-                  backgroundColor: Colors.blueAccent,
-                  tooltip: 'Go to my location',
-                  heroTag: 'location_button',
-                  child: const Icon(Icons.gps_fixed, color: Colors.white),
                 ),
               ],
             ),
-          ),
-          Positioned(top: 10, left: 10, child: _buildLegend()),
-          if (_activeParkingSession != null && _parkingStartTime != null)
+            if (_isMapLoading)
+              Container(
+                color: Colors.white.withOpacity(0.8),
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.blueAccent),
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Loading map...',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: ActiveParkingCard(
-                zone: _activeParkingSession!,
-                startTime: _parkingStartTime!,
-                onEndParking: _endParking,
+              // NEW: Adjust position to make room for the new button
+              bottom: _activeParkingSession != null ? 120 : 95,
+              right: 20,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FloatingActionButton(
+                    mini: true,
+                    onPressed: () {
+                      if (_positionStreamSubscription != null) {
+                        _stopLocationTracking();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Location tracking stopped'),
+                            backgroundColor: Colors.orange,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      } else {
+                        _startLocationTracking();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Continuous location tracking started'),
+                            backgroundColor: Colors.green,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+                    backgroundColor: _positionStreamSubscription != null
+                        ? Colors.green
+                        : Colors.grey.shade600,
+                    tooltip: _positionStreamSubscription != null
+                        ? 'Stop location tracking'
+                        : 'Start location tracking',
+                    heroTag: 'tracking_button',
+                    child: Icon(
+                      _positionStreamSubscription != null
+                          ? Icons.location_on
+                          : Icons.location_off,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  FloatingActionButton(
+                    onPressed: () => _fetchCurrentUserLocation(),
+                    backgroundColor: Colors.blueAccent,
+                    tooltip: 'Go to my location',
+                    heroTag: 'location_button',
+                    child: const Icon(Icons.gps_fixed, color: Colors.white),
+                  ),
+                ],
               ),
             ),
-        ],
+            // NEW: "Find Parkings Near Me" button, only shown when not in an active session.
+            if (_activeParkingSession == null)
+              Positioned(
+                bottom: 20,
+                left: 20,
+                right: 20,
+                child: FloatingActionButton.extended(
+                  onPressed: _isSearchingNearby ? null : _findNearbyParkings,
+                  backgroundColor: Colors.blueAccent,
+                  heroTag: 'find_nearby_button',
+                  elevation: 4,
+                  icon: _isSearchingNearby
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.5,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.search_rounded, color: Colors.white),
+                  label: Text(
+                    _isSearchingNearby ? 'Searching...' : 'Find Parkings Near Me',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16),
+                  ),
+                ),
+              ),
+
+            // NEW: Moved legend down to not conflict with search bar.
+            Positioned(top: 90, left: 10, child: _buildLegend()),
+
+            if (_activeParkingSession != null && _parkingStartTime != null)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: ActiveParkingCard(
+                  zone: _activeParkingSession!,
+                  startTime: _parkingStartTime!,
+                  onEndParking: _endParking,
+                ),
+              ),
+
+            // NEW: Search bar and its results list.
+            Positioned(
+              top: 16,
+              left: 16,
+              right: 16,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildSearchBar(),
+                  if (_searchFocusNode.hasFocus && _searchResults.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _buildSearchResultsList(),
+                  ]
+                ],
+              ),
+            ),
+            
+            // NEW: Radar animation shown during search.
+            if (_isSearchingNearby)
+              Center(
+                child: IgnorePointer(
+                  child: _SearchRadarAnimation(controller: _radarAnimationController!),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
+
+  // NEW: Search Bar Widget
+  Widget _buildSearchBar() {
+    return Material(
+      elevation: 4.0,
+      shadowColor: Colors.black.withOpacity(0.2),
+      borderRadius: BorderRadius.circular(30.0),
+      child: TextField(
+        controller: _searchController,
+        focusNode: _searchFocusNode,
+        decoration: InputDecoration(
+          hintText: 'Search for a parking zone...',
+          prefixIcon: const Icon(Icons.search, color: Colors.grey),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, color: Colors.grey),
+                  onPressed: _clearSearch,
+                )
+              : null,
+          contentPadding: const EdgeInsets.symmetric(vertical: 15.0),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(30.0),
+            borderSide: BorderSide.none,
+          ),
+          filled: true,
+          fillColor: Colors.white,
+        ),
+      ),
+    );
+  }
+  
+  // NEW: Search Results List Widget
+  Widget _buildSearchResultsList() {
+    return Material(
+      elevation: 4.0,
+      color: Colors.white,
+      shadowColor: Colors.black.withOpacity(0.2),
+      borderRadius: BorderRadius.circular(16.0),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16.0),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.3,
+          ),
+          child: ListView.builder(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            shrinkWrap: true,
+            itemCount: _searchResults.length,
+            itemBuilder: (context, index) {
+              final zone = _searchResults[index];
+              return ListTile(
+                leading: Icon(Icons.local_parking, color: _getZoneColor(zone.occupancyRate)),
+                title: Text(zone.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                subtitle: Text(zone.address, style: TextStyle(color: Colors.grey.shade600)),
+                onTap: () {
+                  _clearSearch();
+                  _onZoneTapped(zone);
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
 
   Widget _buildLegend() {
     return Container(
@@ -679,6 +895,9 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.9),
         borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 5)
+        ],
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Column(
@@ -1072,6 +1291,61 @@ class __UserLocationMarkerState extends State<_UserLocationMarker>
     );
   }
 }
+
+// NEW: A stateless widget for the radar/sonar search animation.
+class _SearchRadarAnimation extends StatelessWidget {
+  final AnimationController controller;
+
+  const _SearchRadarAnimation({required this.controller});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, child) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            _buildRipple(0.0),
+            _buildRipple(0.4),
+            _buildRipple(0.8),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRipple(double delay) {
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.7, end: 0.0).animate(
+        CurvedAnimation(
+          parent: controller,
+          curve: Interval(delay, 1.0, curve: Curves.easeInOut),
+        ),
+      ),
+      child: ScaleTransition(
+        scale: Tween<double>(begin: 0.3, end: 1.0).animate(
+          CurvedAnimation(
+            parent: controller,
+            curve: Interval(delay, 1.0, curve: Curves.easeOut),
+          ),
+        ),
+        child: Container(
+          width: 250,
+          height: 250,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.blueAccent.withOpacity(0.7),
+              width: 2.5,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 
 Color _getZoneColor(double occupancyRate) {
   if (occupancyRate >= 0.9) return Colors.red.shade600;
