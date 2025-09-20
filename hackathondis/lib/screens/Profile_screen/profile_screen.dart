@@ -44,13 +44,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   XFile? _pickedImage;
 
   final _staticUserData = _StaticUserData(
-    displayName: 'Aymen B.',
+    displayName: 'Benmati Yassine',
     photoUrl: 'https://picsum.photos/seed/picsum/200/300',
     carAge: '5 years',
     vehicleMake: 'Toyota',
     vehicleYear: '2018',
     matricule: '1234-AB-56',
   );
+  
+  // Static reservation data
+  final Map<String, String> _reservationData = {
+    'From': 'Sept 20, 2025 - 10:00 AM',
+    'To': 'Sept 20, 2025 - 12:00 PM',
+    'Location': 'Downtown Parking Zone B',
+    'Status': 'Active',
+  };
 
   Future<void> _updateProfilePicture() async {
     final ImagePicker picker = ImagePicker();
@@ -146,6 +154,100 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
+                // Reservation Details Section
+                Card(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  elevation: 8,
+                  child: Stack(
+                    children: [
+                      // Decorative background with white circles
+                      Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(15),
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Colors.green.shade300,
+                              Colors.green.shade700,
+                            ],
+                          ),
+                        ),
+                        height: 200,
+                        width: double.infinity,
+                      ),
+                      // White circles for background decoration
+                      Positioned(
+                        top: -15,
+                        right: -15,
+                        child: Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: -20,
+                        left: -20,
+                        child: Container(
+                          width: 100,
+                          height: 100,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        top: 50,
+                        right: 50,
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                      // Content
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.calendar_today, color: Colors.white, size: 24),
+                                const SizedBox(width: 10),
+                                Text(
+                                  "Current Reservation",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            _buildReservationRow("From", _reservationData['From']!),
+                            const Divider(color: Colors.white24, height: 20, thickness: 0.5),
+                            _buildReservationRow("To", _reservationData['To']!),
+                            const Divider(color: Colors.white24, height: 20, thickness: 0.5),
+                            _buildReservationRow("Location", _reservationData['Location']!),
+                            const Divider(color: Colors.white24, height: 20, thickness: 0.5),
+                            _buildStatusRow("Status", _reservationData['Status']!),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
               ],
             ),
           ),
@@ -173,6 +275,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
               fontSize: 16,
               fontWeight: FontWeight.w500,
               color: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildReservationRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.white,
+            ),
+          ),
+          Text(
+            value,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildStatusRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: GoogleFonts.poppins(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Colors.white,
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: Colors.green.shade700,
+              ),
             ),
           ),
         ],
