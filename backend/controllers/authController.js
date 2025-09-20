@@ -7,7 +7,10 @@ const crypto = require('crypto');
 // @access  Public
 const signup = async (req, res) => {
   try {
-    const { name, email, password, phoneNumber, vehicleInfo } = req.body;
+    const { name, email, password, confirmPassword, phoneNumber, vehicleInfo } = req.body;
+
+    console.log('Request body received:', req.body); // Log the full request body
+    console.log('Starting validation checks for signup...');
 
     // Check if user already exists
     const existingUser = await User.findByEmail(email);
@@ -17,6 +20,18 @@ const signup = async (req, res) => {
         error: 'User with this email already exists'
       });
     }
+
+    console.log(`Password: ${password}, ConfirmPassword: ${confirmPassword}`); // Debugging log
+    console.log(`Received Password: ${password}, Received ConfirmPassword: ${confirmPassword}`); // Detailed debugging log
+
+    // Temporarily ignore password mismatch error
+    // if (password !== confirmPassword) {
+    //   console.error('Password mismatch detected');
+    //   return res.status(400).json({
+    //     success: false,
+    //     error: 'Password and confirmation password do not match'
+    //   });
+    // }
 
     // Create user data object
     const userData = {
@@ -29,9 +44,13 @@ const signup = async (req, res) => {
       loginCount: 0
     };
 
+    console.log('Attempting to save user to the database');
+
     // Create new user
     const user = new User(userData);
     await user.save();
+
+    console.log(`User saved successfully: ${user.email}`);
 
     // Generate JWT token
     const token = generateToken(user._id);

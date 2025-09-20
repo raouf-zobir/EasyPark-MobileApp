@@ -49,6 +49,18 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
     super.dispose();
   }
 
+  void _showErrorMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          message,
+          style: const TextStyle(color: Colors.white),
+        ),
+        backgroundColor: Colors.red,
+      ),
+    );
+  }
+
   void _handleSignup() async {
     setState(() => _isLoading = true);
 
@@ -57,17 +69,15 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
         _emailController.text.isEmpty ||
         _passwordController.text.isEmpty ||
         _passwordCheckController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields')),
-      );
+      _showErrorMessage('Please fill in all fields');
       setState(() => _isLoading = false);
       return;
     }
 
-    if (_passwordController.text != _passwordCheckController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match')),
-      );
+    print('Password: ${_passwordController.text.trim()}, ConfirmPassword: ${_passwordCheckController.text.trim()}'); // Debugging log
+
+    if (_passwordController.text.trim() != _passwordCheckController.text.trim()) {
+      _showErrorMessage('Passwords do not match');
       setState(() => _isLoading = false);
       return;
     }
@@ -91,14 +101,14 @@ class _SignupScreenState extends State<SignupScreen> with SingleTickerProviderSt
         Navigator.pushReplacementNamed(context, '/login');
       } else {
         final error = jsonDecode(response.body);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error['error'] ?? 'Signup failed')),
-        );
+        if (error['details'] != null && error['details'] is List) {
+          _showErrorMessage(error['details'].map((e) => e['message']).join(', '));
+        } else {
+          _showErrorMessage(error['error'] ?? 'Signup failed');
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('An error occurred. Please try again.')),
-      );
+      _showErrorMessage('An error occurred: $e');
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);

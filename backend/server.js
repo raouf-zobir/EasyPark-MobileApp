@@ -64,6 +64,16 @@ mongoose.connect(process.env.MONGODB_URI, {
   process.exit(1);
 });
 
+// Validate critical environment variables
+if (!process.env.MONGODB_URI) {
+  console.error('❌ Missing MONGODB_URI environment variable');
+  process.exit(1);
+}
+if (!process.env.PORT) {
+  console.error('❌ Missing PORT environment variable');
+  process.exit(1);
+}
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -77,9 +87,9 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 
-// Global error handler
+// Enhanced error logging
 app.use((err, req, res, next) => {
-  console.error('Error details:', err);
+  console.error('Error details:', err.stack || err);
   
   // Mongoose validation error
   if (err.name === 'ValidationError') {

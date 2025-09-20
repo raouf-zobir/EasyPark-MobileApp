@@ -151,7 +151,6 @@ userSchema.statics.findActive = function() {
 };
 
 // Index for better query performance
-userSchema.index({ email: 1 });
 userSchema.index({ createdAt: -1 });
 userSchema.index({ isActive: 1 });
 

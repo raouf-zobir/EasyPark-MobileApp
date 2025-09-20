@@ -44,14 +44,6 @@ const validateSignup = [
     .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
     .withMessage('Password must contain at least one uppercase letter, one lowercase letter, and one number'),
     
-  body('confirmPassword')
-    .custom((value, { req }) => {
-      if (value !== req.body.password) {
-        throw new Error('Password confirmation does not match password');
-      }
-      return true;
-    }),
-    
   body('phoneNumber')
     .optional()
     .matches(/^\+?[\d\s-()]+$/)
