@@ -125,15 +125,16 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
     await _fetchCurrentUserLocation(moveCamera: false);
     final dataCenter = currentLocation ?? initialCenter;
 
-    final zones = await _generateMockParkingZones(dataCenter, 3);
+    // Display all parking zones instead of just a subset
+    final zones = await _generateMockParkingZones(dataCenter, null);
     if (mounted) {
       setState(() {
         parkingZones = zones;
         _isMapLoading = false;
         if (currentLocation != null) {
-          mapController.move(currentLocation!, 14.0);
+          mapController.move(currentLocation!, 13.5); // Slightly zoomed out to see more zones
         } else {
-          mapController.move(dataCenter, 14.0);
+          mapController.move(dataCenter, 13.5); // Slightly zoomed out to see more zones
         }
         _highlightNearbyZones();
       });
@@ -142,37 +143,48 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
 
   Future<List<ParkingZone>> _generateMockParkingZones(
     LatLng center,
-    int count,
+    int? count,
   ) async {
     await Future.delayed(
         const Duration(milliseconds: 300)); // Simulate network latency
     final random = math.Random();
     
+    // Real parking zones for the map (used for markers and reservations)
     final List<Map<String, dynamic>> realParkingLocations = [
       {
-        'name': 'Ardis Mall Parking',
-        'address': 'Hydra, Alger',
-        'location': LatLng(36.7387, 3.144436),
-        'totalSpots': 250,
-        'pricePerHour': 150.0,
+      'name': 'Ardis Mall Parking',
+      'address': 'Hydra, Alger',
+      'location': LatLng(36.7387, 3.144436),
+      'totalSpots': 250,
+      'pricePerHour': 150.0,
       },
       {
-        'name': 'Centre Commercial Bab Ezzouar',
-        'address': 'Bab Ezzouar, Alger',
-        'location': LatLng(36.7125, 3.1978),
-        'totalSpots': 180,
-        'pricePerHour': 120.0,
+      'name': 'Centre Commercial Bab Ezzouar',
+      'address': 'Bab Ezzouar, Alger',
+      'location': LatLng(36.7125, 3.1978),
+      'totalSpots': 180,
+      'pricePerHour': 120.0,
       },
       {
-        'name': 'Sofia Parking',
-        'address': 'Alger Centre, Alger',
-        'location': LatLng(36.7712, 3.0597),
-        'totalSpots': 150,
-        'pricePerHour': 180.0,
+      'name': 'Sofia Parking',
+      'address': 'Alger Centre, Alger',
+      'location': LatLng(36.7712, 3.0597),
+      'totalSpots': 150,
+      'pricePerHour': 180.0,
+      },
+      {
+      'name': 'GardenCity Parking',
+      'address': 'Garden City, Alger',
+      'location': LatLng(36.752751, 2.95226),
+      'totalSpots': 35,
+      'pricePerHour': 140.0,
       },
     ];
 
-    final selectedLocations = realParkingLocations.take(count).toList();
+    // Use all parking locations instead of just a subset
+    final selectedLocations = count != null 
+        ? realParkingLocations.take(count).toList() 
+        : realParkingLocations;
     
     return selectedLocations.asMap().entries.map((entry) {
       final index = entry.key;
@@ -577,7 +589,7 @@ class _MapScreenState extends State<MapScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
-      appBar: const ModernAppBar(title: 'ParkDZ Finder'),
+      appBar: const ModernAppBar(title: 'Finde Park'),
       // NEW: Wrap body in a GestureDetector to unfocus search bar when tapping the map.
       body: GestureDetector(
         onTap: () {
