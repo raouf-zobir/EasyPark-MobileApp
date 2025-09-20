@@ -64,7 +64,9 @@ class _LoginScreenState extends State<LoginScreen>
 
     try {
       final response = await http.post(
-        Uri.parse('http://192.168.96.235:3000/api/auth/login'), // Corrected syntax
+        Uri.parse(
+          'http://192.168.96.235:3000/api/auth/login',
+        ), // Corrected syntax
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'email': _emailController.text,
@@ -116,13 +118,15 @@ class _LoginScreenState extends State<LoginScreen>
       body: SafeArea(
         child: SingleChildScrollView(
           child: Container(
-            height: MediaQuery.of(context).size.height - MediaQuery.of(context).padding.top,
+            height:
+                MediaQuery.of(context).size.height -
+                MediaQuery.of(context).padding.top,
             padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Column(
               children: [
                 // Top spacing
                 const SizedBox(height: 60),
-                
+
                 // App Logo and Title Section
                 FadeTransition(
                   opacity: _fadeAnimation,
@@ -153,7 +157,9 @@ class _LoginScreenState extends State<LoginScreen>
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppColors.primaryBlue.withOpacity(0.3),
+                                      color: AppColors.primaryBlue.withOpacity(
+                                        0.3,
+                                      ),
                                       blurRadius: 20,
                                       offset: const Offset(0, 10),
                                     ),
@@ -190,9 +196,9 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(height: 48),
-                
+
                 // Login Form
                 Column(
                   children: [
@@ -211,12 +217,13 @@ class _LoginScreenState extends State<LoginScreen>
                       isPassword: true,
                     ),
                     const SizedBox(height: 12),
-                    
+
                     // Forgot Password
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () => Navigator.pushNamed(context, '/forgot-password'),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, '/forgot-password'),
                         child: Text(
                           'Forgot Password?',
                           style: GoogleFonts.inter(
@@ -227,14 +234,14 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 32),
-                    
+
                     // Login Button
                     _buildModernLoginButton(),
-                    
+
                     const SizedBox(height: 24),
-                    
+
                     // Divider
                     Row(
                       children: [
@@ -262,16 +269,16 @@ class _LoginScreenState extends State<LoginScreen>
                         ),
                       ],
                     ),
-                    
+
                     const SizedBox(height: 24),
-                    
+
                     // Google Sign In Button
                     _buildModernGoogleButton(),
                   ],
                 ),
-                
+
                 const Spacer(),
-                
+
                 // Sign Up Link
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -301,7 +308,7 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 24),
               ],
             ),
@@ -333,25 +340,20 @@ class _LoginScreenState extends State<LoginScreen>
       child: TextField(
         controller: controller,
         obscureText: obscureText,
-        style: GoogleFonts.inter(
-          fontSize: 16,
-          color: const Color(0xFF1A1A1A),
-        ),
+        style: GoogleFonts.inter(fontSize: 16, color: const Color(0xFF1A1A1A)),
         decoration: InputDecoration(
           hintText: label,
           hintStyle: GoogleFonts.inter(
             fontSize: 16,
             color: const Color(0xFF999999),
           ),
-          prefixIcon: Icon(
-            icon,
-            color: const Color(0xFF666666),
-            size: 20,
-          ),
+          prefixIcon: Icon(icon, color: const Color(0xFF666666), size: 20),
           suffixIcon: isPassword
               ? IconButton(
                   icon: Icon(
-                    _obscurePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                    _obscurePassword
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
                     color: const Color(0xFF666666),
                     size: 20,
                   ),
@@ -372,10 +374,7 @@ class _LoginScreenState extends State<LoginScreen>
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(
-              color: AppColors.primaryBlue,
-              width: 2,
-            ),
+            borderSide: BorderSide(color: AppColors.primaryBlue, width: 2),
           ),
           filled: true,
           fillColor: Colors.white,
@@ -444,10 +443,7 @@ class _LoginScreenState extends State<LoginScreen>
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0xFFE5E5E5),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0xFFE5E5E5), width: 1),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.04),

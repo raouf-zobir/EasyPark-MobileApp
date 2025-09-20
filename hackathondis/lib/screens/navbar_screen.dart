@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hackathondis/screens/Profile_screen/profile_screen.dart';
 import 'package:hackathondis/screens/homescreen.dart';
 import 'package:hackathondis/screens/map_screen.dart';
-import 'package:hackathondis/screens/fundraising_screen.dart';
-import 'package:hackathondis/screens/chat_screen.dart';
+
 
 
 class NavBarScreen extends StatefulWidget {

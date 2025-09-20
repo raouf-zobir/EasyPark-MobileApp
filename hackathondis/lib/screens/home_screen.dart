@@ -3,12 +3,8 @@ import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:hackathondis/screens/association_screen.dart';
-import 'package:hackathondis/screens/chat_page.dart';
+
 import 'package:hackathondis/screens/modern_app_bar.dart';
-import 'package:hackathondis/screens/notification_screen.dart';
-import 'package:hackathondis/screens/reels_screen.dart';
-import 'package:hackathondis/screens/search_page.dart';
 import 'package:hackathondis/screens/top_up_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -259,7 +255,7 @@ class _FundraisingHomePageState extends State<HomeScreen> {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => SearchPage()),
+                MaterialPageRoute(builder: (context) => SearchPage(initialTabIndex: 0)),
               );
             },
           ),
@@ -1069,4 +1065,19 @@ class _FundraisingHomePageState extends State<HomeScreen> {
       ],
     );
   }
+}
+
+ReelsScreen({required int initialIndex, required List<QueryDocumentSnapshot<Object?>> videos}) {
+}
+
+SearchPage({required int initialTabIndex}) {
+}
+
+NotificationScreen() {
+}
+
+AssociationScreen({required Map<String, dynamic> fundraiser}) {
+}
+
+ChatPage() {
 }
